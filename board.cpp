@@ -34,6 +34,72 @@ void initialise()
 	black_short_castle = true;
 }
 
+/* init_hash() initializes the random numbers used by set_hash(). */
+
+void init_hash()
+{
+	int i, j, k;
+
+	srand(0);
+	for (i = 0; i < 2; ++i)
+		for (j = 0; j < 6; ++j)
+			for (k = 0; k < 64; ++k)
+				hash_piece[i][j][k] = hash_rand();
+	hash_side = hash_rand();
+	for (i = 0; i < 64; ++i)
+		hash_ep[i] = hash_rand();
+
+    for (i = 0; i < 1000000; i++)
+    {
+        hashes[i] = -1;
+        hasheval[i] = -1;
+        hashdepth[i] = -1;
+        hashtype[i] = -1;
+    }
+}
+
+
+/* hash_rand() XORs some shifted random numbers together to make sure
+   we have good coverage of all 32 bits. (rand() returns 16-bit numbers
+   on some systems.) */
+
+int hash_rand()
+{
+	int i;
+	int r = 0;
+
+	for (i = 0; i < 32; ++i)
+		r ^= rand() << i;
+	return r;
+}
+
+
+/* set_hash() uses the Zobrist method of generating a unique number (hash)
+   for the current chess position. Of course, there are many more chess
+   positions than there are 32 bit numbers, so the numbers generated are
+   not really unique, but they're unique enough for our purposes (to detect
+   repetitions of the position).
+   The way it works is to XOR random numbers that correspond to features of
+   the position, e.g., if there's a BLACK KNIGHT on B8, hash is XORed with
+   hash_piece[BLACK][KNIGHT][B8]. All of the pieces are XORed together,
+   hash_side is XORed if it's BLACK's move, and the en passant square is
+   XORed if there is one. (A chess technicality is that one position can't
+   be a repetition of another if the en passant state is different.) */
+
+void set_hash(int player)
+{
+	int i; // change this
+
+	hashing = 0;
+	for (i = 0; i < 64; ++i)
+		if (color[i] != EMPTY)
+			hashing ^= hash_piece[color[i]][piece[i]][i];
+	if (player == BLACK)
+		hashing ^= hash_side;
+	if (ep != -1)
+		hashing ^= hash_ep[ep];
+}
+
 bool checked (int player)
 {
     int square = -1;
@@ -66,6 +132,7 @@ bool play(int from, int to, int player)
     piece[to] = piece[from];
     color[from] = EMPTY;
     piece[from] = EMPTY;
+    ply++;
 
     if(checked(player))
     {
@@ -73,6 +140,8 @@ bool play(int from, int to, int player)
 
         return false;
     }
+
+    set_hash(player);
 
     if (((color[to] == BLACK) && (to / 8 == 7) && (piece[to] == PAWN)) ||
         ((color[to] == WHITE) && (to / 8 == 0) && (piece[to] == PAWN))) piece[to] = QUEEN;
@@ -442,14 +511,18 @@ void legalmoves(int side)
 {
     legalcount++;
     srand(time(NULL));
-    int current = 0, c, p, p1, p2, x, piece_from, ep_before;
+    int current = 0, c, p, p1, p2, x, piece_from, ep_before, j;
     for (int i = 0; i < 64; i++)
     {
         if (color[i] == side)
         {
-            for (int j = 0; j < 64; j++)
+            genpossible(i);
+            //printf("%d %d\n", i, totaloffs);
+            for (int k = 0; k < totaloffs; k++)
             {
-                if ((color[j] != side) && valid(i, j))
+                j = i + offset[k];
+                //printf("%d\n", j);
+                if (color[j] != side)
                 {
                     c = color[j];
                     p = piece[j];
@@ -517,14 +590,45 @@ int capturing (int side)
 {
     captcount++;
     int list_moves[100][2], current = 0, mult = 2 * side - 1, res = position(), r, from, to, c, p, val, orig_piece, ep_before;     // mult = -1 if WHITE and 1 if BLACK
-    legalmoves(side);
+    //legalmoves(side);
 
-    while (possible[current][0] != -1)
+    int piece_from, j;
+    for (int i = 0; i < 64; i++)
+    {
+        if (color[i] == side)
+        {
+            genpossible(i);
+            //printf("%d %d\n", i, totaloffs);
+            for (int k = 0; k < totaloffs; k++)
+            {
+                j = i + offset[k];
+                //printf("%d\n", j);
+                if (color[j] == 1 - side)
+                {
+                    c = color[j];
+                    p = piece[j];
+                    piece_from = piece[i];
+                    ep_before = ep;
+
+                    bool legal = play(i, j, side);
+                    if (legal)
+                    {
+                        takeback(i, j, piece_from, c, p, 0, ep_before);
+
+                        list_moves[current][0] = i;
+                        list_moves[current][1] = j;
+                        current++;
+                    }
+                }
+            }
+        }
+    }
+    /*while (possible[current][0] != -1)
     {
         list_moves[current][0] = possible[current][0];
         list_moves[current][1] = possible[current][1];
         current++;
-    }
+    }*/
 
     if (current == 0) return 1000 * mult;
     current--;
@@ -597,6 +701,7 @@ void takeback (int from, int to, int from_piece, int to_color, int to_piece, int
     color[to] = to_color;
     piece[to] = to_piece;
     ep = ep_now;
+    ply--;
 
     if (ep == to && piece[from] == PAWN && from % 8 != to % 8 && color[to] == EMPTY)
     {
@@ -613,22 +718,252 @@ void takeback (int from, int to, int from_piece, int to_color, int to_piece, int
     }
 }
 
+void genpossible (int coo)
+{
+    totaloffs = 0;
+    int side = 2 * color[coo] - 1, x;
+    for (int i = 0; i < 30; i++) offset[i] = 0;
+    switch (piece[coo])
+    {
+        case PAWN:
+            offset[totaloffs] = 8 * side;
+            totaloffs++;
+            if (rank8(coo) == 1 || rank8(coo) == 6)
+            {
+                offset[totaloffs] = 16 * side;
+                totaloffs++;
+            }
+            x = coo + 8 * side + 1;
+            if (color[x] == 1 - color[coo])
+            {
+                offset[totaloffs] = x - coo;
+                totaloffs++;
+            }
+            x = coo + 8 * side - 1;
+            if (color[x] == 1 - color[coo])
+            {
+                offset[totaloffs] = x - coo;
+                totaloffs++;
+            }
+            break;
+
+        case KNIGHT:
+            for (int i = -1; i < 2; i += 2)
+            {
+                for (int j = 1; j < 3; j++)
+                {
+                    for (int k = -1; k < 2; k += 2)
+                    {
+                        x = i * (8 * j + (3-j) * k);
+                        if (inside(coo + x))
+                        {
+                            offset[totaloffs] = x;
+                            totaloffs++;
+                        }
+                    }
+                }
+            }
+            break;
+
+        case BISHOP:
+            for (int i = 1; i < 8; i++)
+            {
+                x = 7 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            for (int i = 1; i < 8; i++)
+            {
+                x = 9 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+
+            for (int i = 1; i < 8; i++)
+            {
+                x = -7 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            for (int i = 1; i < 8; i++)
+            {
+                x = -9 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            break;
+
+        case ROOK:
+            for (int i = -file8(coo); i < 8 - file8(coo); i++)
+            {
+                x = coo + i;
+                if (i != 0)
+                {
+                    offset[totaloffs] = i;
+                    totaloffs++;
+                }
+            }
+            for (int i = -rank8(coo); i < 8 - rank8(coo); i++)
+            {
+                x = coo + 8 * i;
+                if (i != 0)
+                {
+                    offset[totaloffs] = i;
+                    totaloffs++;
+                }
+            }
+            break;
+
+        case QUEEN:
+
+            for (int i = 1; i < 8; i++)
+            {
+                x = 7 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            for (int i = 1; i < 8; i++)
+            {
+                x = 9 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+
+            for (int i = 1; i < 8; i++)
+            {
+                x = -7 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            for (int i = 1; i < 8; i++)
+            {
+                x = -9 * i;
+                if (inside(coo + x))
+                {
+                    offset[totaloffs] = x;
+                    totaloffs++;
+                }
+                else break;
+            }
+            for (int i = -file8(coo); i < 8 - file8(coo); i++)
+            {
+                x = coo + i;
+                if (i != 0)
+                {
+                    offset[totaloffs] = i;
+                    totaloffs++;
+                }
+            }
+            for (int i = -rank8(coo); i < 8 - rank8(coo); i++)
+            {
+                x = coo + 8 * i;
+                if (i != 0)
+                {
+                    offset[totaloffs] = i;
+                    totaloffs++;
+                }
+            }
+            break;
+
+        case KING:
+            for (int i = -1; i < 2; i++)
+            {
+                for (int j = -1; j < 2; j++)
+                {
+                    x = 8 * i + j;
+                    if (x != 0 && inside(coo+x))
+                    {
+                        offset[totaloffs] = x;
+                        totaloffs++;
+                    }
+                }
+            }
+            break;
+
+        default: totaloffs = 0; break;
+    }
+}
+
+int analyzed (int h, int d)
+{
+    for (int i = 0; i < hashcount; i++)
+    {
+        if (h == hashes[i])
+        {
+            if (d <= hashdepth[i] && hashtype[i] == 2) return hasheval[i];
+            else return 12345;
+        }
+    }
+
+    return 12345;
+}
+
 int points(int square)
 {
     switch(piece[square])
     {
-        case PAWN: return 1;
-        case KNIGHT:
-        case BISHOP: return 3;
-        case ROOK: return 5;
-        case QUEEN: return 9;
+        case PAWN: return 100;
+        case KNIGHT: return 325;
+        case BISHOP: return 350;
+        case ROOK: return 525;
+        case QUEEN: return 950;
         default: return 0;
     }
+}
+
+int rank8 (int square)
+{
+    return square / 8;
+}
+
+int file8 (int square)
+{
+    return square % 8;
+}
+
+bool inside (int square)
+{
+    return square >=0 && square < 64;
 }
 
 void square(int coo)
 {
     printf("%c%d\n", ('a' + coo % 8), 8 - coo / 8);
+}
+
+bool endgame()
+{
+    int all = 0;
+    for(int i = 0; i < 64; i++) all += points(i);
+    return all < 2500;
 }
 
 void swap_values(int x, int y)

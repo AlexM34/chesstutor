@@ -111,6 +111,65 @@ int random()
     }
 } */
 
+/*int alphaBeta(int alpha, int beta, int depth)
+{
+    if (alpha > beta) printf("IT'S CLOBERRING TIMEEEEEEEEEEEE!");
+    int list_moves[100][2], from, to, current = 0, c, p, score, best = 0, orig_piece, ep_before, player = (max_depth - depth) % 2;
+    bool legal;
+
+    legalmoves((max_depth - depth) % 2);
+
+    while (possible[current][0] != -1)
+    {
+        list_moves[current][0] = possible[current][0];
+        list_moves[current][1] = possible[current][1];
+        if (depth == max_depth)
+        {
+            printf("%d %d %d- ", list_moves[current][0], list_moves[current][1], points(list_moves[current][1]));
+        }
+        current++;
+    }
+
+    if (current == 0)
+    {
+        if (depth != max_depth) return -911;
+        else return -1;
+    }
+    current--;
+    best = 100 * list_moves[current][0] + list_moves[current][1];
+
+    if (depth == 0) return capturing(player);
+
+    while (current >= 0)
+    {
+        from = list_moves[current][0];
+        to = list_moves[current][1];
+        c = color[to];
+        p = piece[to];
+        orig_piece = piece[from];
+        ep_before = ep;
+        legal = play(from, to, player);
+
+        if(!legal) {print(); printf("FALSE WHIIIIIIIIIIIIIIITE\n"); square(from); square(to);}
+        if (legal)
+        {
+            score = -alphaBeta(-beta, -alpha, depth-1);
+            takeback(from, to, orig_piece, c, p, 0, ep_before);
+
+            if (score >= beta && depth != max_depth) return beta;
+            else if (score > alpha)
+            {
+                alpha = score;
+                if (depth == max_depth) best = 100*from + to;
+            }
+        }
+        current--;
+    }
+
+    if (depth != max_depth) return alpha;
+    else return best;
+}*/
+
 int alphaBetaMax(int alpha, int beta, int depth)
 {
     //printf("maxiiiiii ALPHA and BETA are %d %d with depth %d\n", alpha, beta, depth);
@@ -126,20 +185,20 @@ int alphaBetaMax(int alpha, int beta, int depth)
         list_moves[current][1] = possible[current][1];
         if (depth == max_depth)
         {
-            //printf("%d %d %d- ", list_moves[current][0], list_moves[current][1], points(list_moves[current][1]));
+            printf("%d %d %d- ", list_moves[current][0], list_moves[current][1], points(list_moves[current][1]));
         }
         current++;
     }
 
     if (current == 0)
     {
-        if (depth != max_depth) return -911;
+        if (depth != max_depth) return -9111;
         else return -1;
     }
     current--;
     best = 100 * list_moves[current][0] + list_moves[current][1];
 
-    if (depth == 0) return capturing(WHITE);
+    if (depth == 0) return position();
 
     while (current >= 0)
     {
@@ -197,7 +256,18 @@ int alphaBetaMax(int alpha, int beta, int depth)
 
             //printf("where amazing happens %d %d %d\n", from, to, depth);
             //if (from == 38 && to == 30 && depth == 1) print();
-            score = alphaBetaMin(alpha, beta, depth-1);
+            score = 12345;//analyzed(hashing, depth);
+            if (score == 12345)
+            {
+                score = alphaBetaMin(alpha, beta, depth-1);
+                hashes[hashcount] = hashing;
+                hasheval[hashcount] = score;
+                if (score <= alpha) hashtype[hashcount] = 1;
+                if (score >= alpha) hashtype[hashcount] = 3;
+                else hashtype[hashcount] = 2;
+                hashcount++;
+                //printf("%d %d\n", hashing, score);
+            }
             //if (from == 38 && to == 30 && depth == 1) printf("just bring it %d\n", score);
             //if (from == 36 && to == 21) {printf("score is %d and depth is %d\n", score, depth); print();}
             takeback(from, to, orig_piece, c, p, 0, ep_before);
@@ -207,7 +277,7 @@ int alphaBetaMax(int alpha, int beta, int depth)
             {
                 //printf("ALPHA grdsgtrv %d %d\n", score, beta);
                 if (depth != max_depth) return beta;
-                // else return best;
+                //else return best;
             }
 
             else if (score > alpha)
@@ -237,7 +307,7 @@ int alphaBetaMin(int alpha, int beta, int depth)
     //printf("minnnni ALPHA and BETA are %d %d with depth %d\n", alpha, beta, depth);
     //if (depth == 2) print();
     if (alpha > beta) printf("JOHN CENA SUUUUUUUUCKSSSS!");
-    int list_moves[100][2], from, to, current = 0, c, p, score, orig_piece, ep_before;
+    int list_moves[100][2], from, to, current = 0, c, p, score, orig_piece, ep_before, best = 0;
     bool legal;
     legalmoves(BLACK);
 
@@ -248,12 +318,16 @@ int alphaBetaMin(int alpha, int beta, int depth)
         current++;
     }
 
-    if (current == 0) return 901;
+    if (current == 0)
+    {
+        if (depth != max_depth) return 9010;
+        return 1;
+    }
     current--;
 
-    if (depth == 0) {
+    if (depth == 0) return position();
             //if (color[to] == WHITE) printf("let's evaluate now");
-            return capturing(BLACK);}
+            //return capturing(BLACK);}
 
     while (current >= 0)
     {
@@ -279,13 +353,29 @@ int alphaBetaMin(int alpha, int beta, int depth)
                 //else {printf("THE MOVE IS 34444444444444 %d \n", best); return best;}
             }*/
             //if (ep != -1) {printf("%d %d \n", from, to); print();}
-            score = alphaBetaMax(alpha, beta, depth-1);
+            score = 12345;//analyzed(hashing, depth);
+            if (score == 12345)
+            {
+                score = alphaBetaMax(alpha, beta, depth-1);
+                hashes[hashcount] = hashing;
+                hasheval[hashcount] = score;
+                if (score <= alpha) hashtype[hashcount] = 1;
+                if (score >= alpha) hashtype[hashcount] = 3;
+                else hashtype[hashcount] = 2;
+                hashcount++;
+                //printf("%d %d\n", hashing, score);
+            }
             takeback(from, to, orig_piece, c, p, 0, ep_before);
 
             if (score <= alpha) return alpha;
             else if (score < beta)
             {
                 beta = score;
+                if (depth == max_depth)
+                {
+                    best = 100*from + to;
+                    //printf("ALPHA high score %d %d\n", alpha, beta);
+                }
                 //if (depth == 4) printf("The new value of beta is %d %d \n", beta, alpha);
             }
         }
@@ -295,7 +385,8 @@ int alphaBetaMin(int alpha, int beta, int depth)
     }
 
     //printf("Wooooooooooooooow\n");
-    return beta;
+    if (depth != max_depth) return beta;
+    else return best;
 }
 
 /* int greedy(int depth, int side)

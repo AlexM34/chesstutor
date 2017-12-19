@@ -3,26 +3,37 @@
 int color[64];      // white, black or empty
 int piece[64];      // pawn, knight, bishop, rook, queen, king or empty
 int possible[100][2];
+int offset[30];     // possible offsets
+int totaloffs = 0;         // count of possible moves
 int player;           // white or black
 int opponent;         // white or black
 int castle;         // castle rights
 int ep;             // en passant square
 int fifty;          // 50-moves rule
 int current;        // current move
-int ply;            // depth of calculation
+int ply = 0;            // depth of calculation
 int max_time;
 int max_depth;
 int start_time;
 int end_time;
 int nodes;          // nodes analyzed
+long long hashing;
 bool white_short_castle;
 bool white_long_castle;
 bool black_short_castle;
 bool black_long_castle;
+long long hash_piece[2][6][64];
+long long hash_side;
+long long hash_ep[64];
 int playcount = 0;
 int legalcount = 0;
 int captcount = 0;
 int validcount = 0;
+int hashcount = 0;
+long long hashes[1000000];
+int hasheval[1000000];
+int hashdepth[1000000];
+int hashtype[1000000];
 
 int start_color[64] = {
 	6, 1, 6, 6, 1, 6, 1, 6,//1, 1, 1, 1, 1, 1, 1, 1,6, 1, 6, 6, 1, 6, 1, 6,
