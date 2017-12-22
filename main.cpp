@@ -13,24 +13,19 @@
 
 int main()
 {
+    beginning:
     int computer, m = 0;
     char input;
     max_depth = 5;
 
     while (m == 0)
     {
+        m = 1;
         printf("Choose your side - White (w) or Black (b): ");
         scanf(" %c", &input);
-        if (input == 'w')
-        {
-            computer = BLACK;
-            m = 1;
-        }
-        else if (input == 'b')
-        {
-            computer = WHITE;
-            m = 1;
-        }
+        if (input == 'w') computer = BLACK;
+        else if (input == 'b') computer = WHITE;
+        else m = 0;
     }
 
     initialise();
@@ -51,6 +46,7 @@ int main()
         print();
 
         if (m == 0) break;
+        else if (m == 2) goto beginning;
 
         m = compmove(computer, max_depth);
         print();
@@ -77,7 +73,7 @@ int parse(char input[64], int player)
 	to += 8 * (8 - (input[3] - '0'));
 	int piece_from = piece[from];
 
-    if (!play(from, to, player)) return -1;
+    if (!play(from, to)) return -1;
     else if (piece_from != piece[to])
     {
         if (input[4] == 'n') piece[to] = KNIGHT;
@@ -91,11 +87,11 @@ int parse(char input[64], int player)
 int compmove(int player, int d)
 {
     int square;
-    if (player == WHITE) square = alphaBetaMax(-10000, 10000, d);
-    else square = alphaBetaMin(-10000, 10000, d);
+    if (sideToMove == WHITE) square = think(d);
+    else square = think(d);
     printf("square %d\n", square);
 
-    if (square == -1 || square == 1)
+    if (square == -1 || square == 1 || square == 0)
     {
         finish(square);
         return 0;
@@ -104,7 +100,8 @@ int compmove(int player, int d)
     int from = square / 100;
     int to = square % 100;
 
-    bool legal = play(from, to, player);
+    bool legal = play(from, to);
+    if (!legal) printf("FALSEEEEEE\n");
     char comp_move[4];
     comp_move[0] = (char) (from % 8 + 'a');
     comp_move[1] = (char) ((8 - from / 8) + '0');
@@ -121,7 +118,6 @@ int compmove(int player, int d)
 int humanmove (int player)
 {
     legalmoves(player);
-
     int m = -1;
     char input[64];
     if (possible[0][1] == -1)
@@ -137,12 +133,7 @@ int humanmove (int player)
         m = parse(input, player);
         if (m == -2) printf("The evaluation is %d\n", position());
         if (m == -3) printf("The capturing is %d\n", capturing(player));
-        if (m == -4)
-        {
-            initialise();
-            init_hash();
-            m = 1;
-        }
+        if (m == -4) return 2;
     }
 
     return 1;

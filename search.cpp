@@ -16,7 +16,7 @@ int random()
     {
         from = rand() % 64;
         to = rand() % 64;
-        legal = play(from, to, WHITE);
+        legal = play(from, to);
         trials++;
     }
 
@@ -111,13 +111,84 @@ int random()
     }
 } */
 
-/*int alphaBeta(int alpha, int beta, int depth)
+/*class HashEntry
 {
-    if (alpha > beta) printf("IT'S CLOBERRING TIMEEEEEEEEEEEE!");
-    int list_moves[100][2], from, to, current = 0, c, p, score, best = 0, orig_piece, ep_before, player = (max_depth - depth) % 2;
-    bool legal;
+    private:
+          int key;
+          int value;
 
-    legalmoves((max_depth - depth) % 2);
+    public:
+          HashEntry(int key, int value)
+          {
+                this->key = key;
+                this->value = value;
+          }
+
+          int getKey()
+          {
+              return key;
+          }
+          int getValue()
+          {
+              return value;
+          }
+};
+
+const int TABLE_SIZE = MAX_SIZE;
+
+class HashMap
+{
+    private: HashEntry **table;
+
+    public: HashMap()
+    {
+        table = new HashEntry*[TABLE_SIZE];
+        for (int i = 0; i < TABLE_SIZE; i++) table[i] = NULL;
+    }
+
+     int get(int key)
+      {
+            int h = (key % TABLE_SIZE);
+
+            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
+            if (table[h] == NULL) return -1;
+            else return table[h]->getValue();
+      }
+
+      void put(int key, int value)
+      {
+            int h = (key % TABLE_SIZE);
+            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
+
+            if (table[h] != NULL) delete table[h];
+            table[h] = new HashEntry(key, value);
+      }
+
+      ~HashMap()
+      {
+            for (int i = 0; i < TABLE_SIZE; i++)
+            {
+                if (table[i] != NULL) delete table[i];
+            }
+
+            delete[] table;
+      }
+};*/
+
+int think (int depth)
+{
+    int best;
+    for (int i = 0; i <= depth; i++) best = alphaBeta(-10000, 10000, i);
+    return best;
+}
+
+int alphaBeta(int alpha, int beta, int depth)
+{
+    if (alpha > beta) return alpha;
+    int list_moves[100][2], from, to, current = 0, c, p, score, best = 0, orig_piece, ep_before, index;
+    bool legal;
+    //HashMap h1 = new HashMap{};
+    legalmoves(sideToMove);
 
     while (possible[current][0] != -1)
     {
@@ -132,13 +203,17 @@ int random()
 
     if (current == 0)
     {
-        if (depth != max_depth) return -911;
-        else return -1;
+        if (depth != max_depth) return -9101;
+        else
+        {
+            if (checked(sideToMove)) return 2 * sideToMove - 1;
+            else return 0;
+        }
     }
     current--;
     best = 100 * list_moves[current][0] + list_moves[current][1];
 
-    if (depth == 0) return capturing(player);
+    if (depth == 0) return capturing(sideToMove) * (1 - 2 * sideToMove);
 
     while (current >= 0)
     {
@@ -148,19 +223,72 @@ int random()
         p = piece[to];
         orig_piece = piece[from];
         ep_before = ep;
-        legal = play(from, to, player);
+        legal = play(from, to);
 
-        if(!legal) {print(); printf("FALSE WHIIIIIIIIIIIIIIITE\n"); square(from); square(to);}
+        if(!legal) {print(); printf("FALSEEEEEEEEEE\n"); square(from); square(to);}
         if (legal)
         {
-            score = -alphaBeta(-beta, -alpha, depth-1);
+            score = hasheval[hashing];//analyzed(hashing, depth);
+            index = hashing;
+
+            if (score == -1 || hasheval2[hashing2] != score)
+            {
+                score = -alphaBeta(-beta, -alpha, depth-1);
+                //hashes[index] = hashing;
+                hasheval[index] = score;
+                hasheval2[hashing2] = score;
+                hashdepth[index] = depth;
+                if (score <= alpha) hashtype[index] = 1;
+                else if (score >= beta) hashtype[index] = 3;
+                else hashtype[index] = 2;
+                //hashcount++;
+                //h1.put(hashing, score);
+                //printf("%d %d\n", hashing, score);
+            }
+            else
+            {
+                switch (hashtype[index])
+                {
+                    case 1: if (alpha < hasheval[index]) alpha = hasheval[index]; score = -alphaBeta(-beta, -alpha, depth-1); break;
+                    case 2: score = hasheval[index]; break;
+                    case 3: if (beta > hasheval[index]) beta = hasheval[index]; score = -alphaBeta(-beta, -alpha, depth-1); break;
+                }
+            }
+
+            /*if (index == -1)
+            {
+                score = -alphaBeta(-beta, -alpha, depth-1);
+                hashes[hashcount] = hashing;
+                hasheval[hashcount] = score;
+                hashdepth[hashcount] = depth;
+                if (score <= alpha) hashtype[hashcount] = 1;
+                else if (score >= beta) hashtype[hashcount] = 3;
+                else hashtype[hashcount] = 2;
+                hashcount++;
+                //h1.put(hashing, score);
+                printf("%d %d\n", hashing, score);
+            }
+            else
+            {
+                switch (hashtype[index])
+                {
+                    case 1: if (alpha < hasheval[index]) alpha = hasheval[index]; score = -alphaBeta(-beta, -alpha, depth-1); break;
+                    case 2: score = hasheval[index]; break;
+                    case 3: if (beta > hasheval[index]) beta = hasheval[index]; score = -alphaBeta(-beta, -alpha, depth-1); break;
+                }
+            }*/
+
             takeback(from, to, orig_piece, c, p, 0, ep_before);
 
-            if (score >= beta && depth != max_depth) return beta;
+            if (score >= beta)
+            {
+                history[100 * from + to] += depth * depth;
+                if (depth != max_depth) return beta;
+            }
             else if (score > alpha)
             {
                 alpha = score;
-                if (depth == max_depth) best = 100*from + to;
+                best = 100*from + to;
             }
         }
         current--;
@@ -168,13 +296,13 @@ int random()
 
     if (depth != max_depth) return alpha;
     else return best;
-}*/
+}
 
 int alphaBetaMax(int alpha, int beta, int depth)
 {
     //printf("maxiiiiii ALPHA and BETA are %d %d with depth %d\n", alpha, beta, depth);
     if (alpha > beta) printf("IT'S CLOBERRING TIMEEEEEEEEEEEE!");
-    int list_moves[100][2], from, to, current = 0, c, p, score, best = 0, orig_piece, ep_before;
+    int list_moves[100][2], from, to, current = 0, c, p, score, best = 0, orig_piece, ep_before, index;
     bool legal;
 
     legalmoves(WHITE);
@@ -208,7 +336,7 @@ int alphaBetaMax(int alpha, int beta, int depth)
         p = piece[to];
         orig_piece = piece[from];
         ep_before = ep;
-        legal = play(from, to, WHITE);
+        legal = play(from, to);
         //if (depth == 5) printf("move %d %d\n", from, to);
 
         if(!legal) {print(); printf("FALSE WHIIIIIIIIIIIIIIITE\n"); square(from); square(to);}
@@ -256,17 +384,28 @@ int alphaBetaMax(int alpha, int beta, int depth)
 
             //printf("where amazing happens %d %d %d\n", from, to, depth);
             //if (from == 38 && to == 30 && depth == 1) print();
-            score = 12345;//analyzed(hashing, depth);
-            if (score == 12345)
+            //index = abs(hashing);
+            //printf("%d\n", index);
+            index = analyzed(hashing, depth);
+            if (index == -1)
             {
                 score = alphaBetaMin(alpha, beta, depth-1);
-                hashes[hashcount] = hashing;
+                //hashes[hashcount] = hashing;
                 hasheval[hashcount] = score;
                 if (score <= alpha) hashtype[hashcount] = 1;
-                if (score >= alpha) hashtype[hashcount] = 3;
-                else hashtype[hashcount] = 2;
+                if (score >= beta) hashtype[hashcount] = 3;
+                else hashtype[index] = 2;
                 hashcount++;
                 //printf("%d %d\n", hashing, score);
+            }
+            else
+            {
+                switch (hashtype[index])
+                {
+                    case 1: if (alpha < hasheval[index]) alpha = hasheval[index]; score = alphaBetaMin(alpha, beta, depth-1); break;
+                    case 2: score = hasheval[index]; break;
+                    case 3: if (beta > hasheval[index]) beta = hasheval[index]; score = alphaBetaMin(alpha, beta, depth-1); break;
+                }
             }
             //if (from == 38 && to == 30 && depth == 1) printf("just bring it %d\n", score);
             //if (from == 36 && to == 21) {printf("score is %d and depth is %d\n", score, depth); print();}
@@ -307,7 +446,7 @@ int alphaBetaMin(int alpha, int beta, int depth)
     //printf("minnnni ALPHA and BETA are %d %d with depth %d\n", alpha, beta, depth);
     //if (depth == 2) print();
     if (alpha > beta) printf("JOHN CENA SUUUUUUUUCKSSSS!");
-    int list_moves[100][2], from, to, current = 0, c, p, score, orig_piece, ep_before, best = 0;
+    int list_moves[100][2], from, to, current = 0, c, p, score, orig_piece, ep_before, best = 0, index;
     bool legal;
     legalmoves(BLACK);
 
@@ -338,7 +477,7 @@ int alphaBetaMin(int alpha, int beta, int depth)
         p = piece[to];
         orig_piece = piece[from];
         ep_before = ep;
-        legal = play(from, to, BLACK);
+        legal = play(from, to);
 
         //printf("%d\n",legal);
         if(!legal) {print(); printf("FALSEEEEEEEEEEEEEEEEEEE BLACK\n"); square(from); square(to);}
@@ -353,18 +492,28 @@ int alphaBetaMin(int alpha, int beta, int depth)
                 //else {printf("THE MOVE IS 34444444444444 %d \n", best); return best;}
             }*/
             //if (ep != -1) {printf("%d %d \n", from, to); print();}
-            score = 12345;//analyzed(hashing, depth);
-            if (score == 12345)
+            index = analyzed(hashing, depth);
+            if (index == -1)
             {
                 score = alphaBetaMax(alpha, beta, depth-1);
-                hashes[hashcount] = hashing;
+                //hashes[hashcount] = hashing;
                 hasheval[hashcount] = score;
                 if (score <= alpha) hashtype[hashcount] = 1;
-                if (score >= alpha) hashtype[hashcount] = 3;
+                if (score >= beta) hashtype[hashcount] = 3;
                 else hashtype[hashcount] = 2;
                 hashcount++;
                 //printf("%d %d\n", hashing, score);
             }
+            else
+            {
+                switch (hashtype[index])
+                {
+                    case 1: if (alpha < hasheval[index]) alpha = hasheval[index]; score = alphaBetaMin(alpha, beta, depth-1); break;
+                    case 2: score = hasheval[index]; break;
+                    case 3: if (beta > hasheval[index]) beta = hasheval[index]; score = alphaBetaMin(alpha, beta, depth-1); break;
+                }
+            }
+
             takeback(from, to, orig_piece, c, p, 0, ep_before);
 
             if (score <= alpha) return alpha;

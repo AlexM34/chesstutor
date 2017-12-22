@@ -21,7 +21,7 @@ void initialise()
 		possible[i][1] = -1;
 	}
 
-	player = WHITE;
+	sideToMove = WHITE;
 	opponent = BLACK;
 	castle = 15;
 	ep = -1;
@@ -42,22 +42,59 @@ void init_hash()
 
 	srand(0);
 	for (i = 0; i < 2; ++i)
-		for (j = 0; j < 6; ++j)
-			for (k = 0; k < 64; ++k)
-				hash_piece[i][j][k] = hash_rand();
-	hash_side = hash_rand();
-	for (i = 0; i < 64; ++i)
-		hash_ep[i] = hash_rand();
-
-    for (i = 0; i < 1000000; i++)
     {
-        hashes[i] = -1;
+		for (j = 0; j < 6; ++j)
+        {
+            for (k = 0; k < 64; ++k)
+            {
+                hash_piece[i][j][k] = hash_rand();
+				hash_piece2[i][j][k] = hash_rand();
+            }
+        }
+    }
+	hash_side = hash_rand();
+	hash_side2 = hash_rand();
+	for (i = 0; i < 64; ++i)
+    {
+        hash_ep[i] = hash_rand();
+		hash_ep2[i] = hash_rand();
+    }
+
+    for (i = 0; i < MAX_SIZE; i++)
+    {
+        //hashes[i] = -1;
         hasheval[i] = -1;
+        hasheval2[i] = -1;
         hashdepth[i] = -1;
         hashtype[i] = -1;
     }
+
+    for (i = 0; i < 4096; i++)
+    {
+        history[i] = 0;
+        fromto[i] = 100 * (i / 64) + (i % 64);
+    }
 }
 
+void sorthistory ()
+{
+    int x;
+    for (int i = 0; i < 4096; i++)
+    {
+        for (int j = i + 1; j < 4096; j++)
+        {
+            if (history[i] < history[j])
+            {
+                x = history[i];
+                history[i] = history[j];
+                history[j] = x;
+                x = fromto[i];
+                fromto[i] = fromto[j];
+                fromto[j] = x;
+            }
+        }
+    }
+}
 
 /* hash_rand() XORs some shifted random numbers together to make sure
    we have good coverage of all 32 bits. (rand() returns 16-bit numbers
@@ -65,12 +102,16 @@ void init_hash()
 
 int hash_rand()
 {
-	int i;
-	int r = 0;
+	long long r = 0;
 
-	for (i = 0; i < 32; ++i)
+	for (int i = 0; i < 32; i++)
 		r ^= rand() << i;
-	return r;
+	//printf("%llu\n", r);
+	r = r % 10000000;
+	int x = (int) r;
+	x = abs(r);
+	//printf("%d\n", x);
+	return x;
 }
 
 
@@ -88,16 +129,27 @@ int hash_rand()
 
 void set_hash(int player)
 {
-	int i; // change this
-
+    int i;
 	hashing = 0;
+	hashing2 = 0;
 	for (i = 0; i < 64; ++i)
+    {
 		if (color[i] != EMPTY)
+        {
 			hashing ^= hash_piece[color[i]][piece[i]][i];
+			hashing2 ^= hash_piece2[color[i]][piece[i]][i];
+        }
+    }
 	if (player == BLACK)
-		hashing ^= hash_side;
+    {
+        hashing ^= hash_side;
+		hashing2 ^= hash_side2;
+    }
 	if (ep != -1)
+    {
 		hashing ^= hash_ep[ep];
+		hashing2 ^= hash_ep2[ep];
+    }
 }
 
 bool checked (int player)
@@ -121,10 +173,10 @@ bool checked (int player)
     return false;
 }
 
-bool play(int from, int to, int player)
+bool play(int from, int to)
 {
     playcount++;
-    if ((color[from] != player) || (color[to] == player) || !valid(from, to)) return false;
+    if ((color[from] != sideToMove) || (color[to] == sideToMove) || !valid(from, to)) return false;
 
     int color_to = color[to], piece_to = piece[to], piece_from = piece[from], ep_before = ep;
 
@@ -134,21 +186,24 @@ bool play(int from, int to, int player)
     piece[from] = EMPTY;
     ply++;
 
-    if(checked(player))
+    if(checked(sideToMove))
     {
+        sideToMove = 1 - sideToMove;
         takeback(from, to, piece_from, color_to, piece_to, 0, ep_before);
 
         return false;
     }
 
-    set_hash(player);
+    set_hash(sideToMove);
 
-    if (((color[to] == BLACK) && (to / 8 == 7) && (piece[to] == PAWN)) ||
-        ((color[to] == WHITE) && (to / 8 == 0) && (piece[to] == PAWN))) piece[to] = QUEEN;
+    if (((color[to] == WHITE) && (to / 8 == 0) && (piece[to] == PAWN)) ||
+        ((color[to] == BLACK) && (to / 8 == 7) && (piece[to] == PAWN))) piece[to] = QUEEN;
 
-    else if (piece[to] == PAWN)
+    if (piece[to] == PAWN)
     {
-        if (player == WHITE)
+        if (to / 8 == sideToMove * 7) piece[to] = QUEEN;
+
+        else if (sideToMove == WHITE)
         {
             if (from / 8 == 6 && to / 8 == 4 && ((color[to-1] == BLACK && piece[to-1] == PAWN && to % 8 > 0)
                                                  || (color[to+1] == BLACK && piece[to+1] == PAWN && to % 8 < 7))) ep = from - 8;
@@ -241,6 +296,7 @@ bool play(int from, int to, int player)
             print();
         }
     }*/
+    sideToMove = 1 - sideToMove;
     return true;
 }
 
@@ -529,7 +585,7 @@ void legalmoves(int side)
                     piece_from = piece[i];
                     ep_before = ep;
 
-                    bool legal = play(i, j, side);
+                    bool legal = play(i, j);
                     if (legal)
                     {
                         takeback(i, j, piece_from, c, p, 0, ep_before);
@@ -549,7 +605,7 @@ void legalmoves(int side)
         possible[i][1] = -1;
     }
 
-    for (int i = 0; i < current; i++)
+    /*for (int i = 0; i < current; i++)
     {
         for (int j = i+1; j < current; j++)
         {
@@ -564,7 +620,7 @@ void legalmoves(int side)
                 possible[j][1] = x;
             }
         }
-    }
+    }*/
 
     for (int i = 0; i < current; i++)
     {
@@ -581,6 +637,33 @@ void legalmoves(int side)
                 x = possible[i][1];
                 possible[i][1] = possible[j][1];
                 possible[j][1] = x;
+            }
+        }
+    }
+
+    int captures = 0, from, to, p3, p4;
+
+    for (int i = 0; i < current; i++)
+    {
+        p1 = possible[i][1];
+        if (points(p1) > 0) captures++;
+    }
+
+    for (int i = captures; i < current; i++)
+    {
+        for (int j = i + 1; j < current; j++)
+        {
+            p1 = possible[i][0];
+            p2 = possible[i][1];
+            p3 = possible[j][0];
+            p4 = possible[j][1];
+
+            if (history[100 * p1 + p2] < history[100 * p3 + p4])
+            {
+                possible[i][0] = p3;
+                possible[j][0] = p1;
+                possible[i][1] = p4;
+                possible[j][1] = p2;
             }
         }
     }
@@ -610,7 +693,7 @@ int capturing (int side)
                     piece_from = piece[i];
                     ep_before = ep;
 
-                    bool legal = play(i, j, side);
+                    bool legal = play(i, j);
                     if (legal)
                     {
                         takeback(i, j, piece_from, c, p, 0, ep_before);
@@ -618,6 +701,7 @@ int capturing (int side)
                         list_moves[current][0] = i;
                         list_moves[current][1] = j;
                         current++;
+                        //printf("%d\n", current);
                     }
                 }
             }
@@ -630,7 +714,7 @@ int capturing (int side)
         current++;
     }*/
 
-    if (current == 0) return 1000 * mult;
+    if (current == 0) return position();
     current--;
     to = list_moves[current][1];
     //printf("current can't fight the friction, soooooo... is %d %d %d\n", current, to, color[to]);
@@ -663,7 +747,7 @@ int capturing (int side)
                 p = piece[to];
                 orig_piece = piece[from];
                 ep_before = ep;
-                bool legal = play(from, to, side);
+                bool legal = play(from, to);
                 if(legal)
                 {
                     //printf("Lacazeeeeeeeeeeettte\n");
@@ -702,6 +786,7 @@ void takeback (int from, int to, int from_piece, int to_color, int to_piece, int
     piece[to] = to_piece;
     ep = ep_now;
     ply--;
+    sideToMove = 1 - sideToMove;
 
     if (ep == to && piece[from] == PAWN && from % 8 != to % 8 && color[to] == EMPTY)
     {
@@ -912,18 +997,82 @@ void genpossible (int coo)
     }
 }
 
+class HashEntry
+{
+    private:
+          int key;
+          int value;
+
+    public:
+          HashEntry(int key, int value)
+          {
+                this->key = key;
+                this->value = value;
+          }
+
+          int getKey()
+          {
+              return key;
+          }
+          int getValue()
+          {
+              return value;
+          }
+};
+
+const int TABLE_SIZE = MAX_SIZE;
+
+class HashMap
+{
+    private: HashEntry **table;
+
+    public: HashMap()
+    {
+        table = new HashEntry*[TABLE_SIZE];
+        for (int i = 0; i < TABLE_SIZE; i++) table[i] = NULL;
+    }
+
+     int get(int key)
+      {
+            int h = (key % TABLE_SIZE);
+
+            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
+            if (table[h] == NULL) return -1;
+            else return table[h]->getValue();
+      }
+
+      void put(int key, int value)
+      {
+            int h = (key % TABLE_SIZE);
+            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
+
+            if (table[h] != NULL) delete table[h];
+            table[h] = new HashEntry(key, value);
+      }
+
+      ~HashMap()
+      {
+            for (int i = 0; i < TABLE_SIZE; i++)
+            {
+                if (table[i] != NULL) delete table[i];
+            }
+
+            delete[] table;
+      }
+};
+
 int analyzed (int h, int d)
 {
     for (int i = 0; i < hashcount; i++)
     {
-        if (h == hashes[i])
+        //if (h == hashes[i])
         {
-            if (d <= hashdepth[i] && hashtype[i] == 2) return hasheval[i];
-            else return 12345;
+            if (d <= hashdepth[i]) return i;
+            else return -1;
         }
     }
 
-    return 12345;
+    return -1;
 }
 
 int points(int square)

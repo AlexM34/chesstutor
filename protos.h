@@ -3,8 +3,9 @@ void initialise();
 void init_hash();
 int hash_rand();
 void set_hash(int player);
+void sorthistory ();
 bool checked (int player);
-bool play (int from, int to, int player);
+bool play (int from, int to);
 bool valid (int from, int to);
 void legalmoves (int side);
 int capturing (int side);
@@ -23,6 +24,7 @@ void square(int coo);
 /* search.cpp */
 int random();
 int greedy (int depth, int color);
+int think (int depth);
 int alphaBeta (int alpha, int beta, int depth);
 int alphaBetaMax (int alpha, int beta, int depth);
 int alphaBetaMin (int alpha, int beta, int depth);
