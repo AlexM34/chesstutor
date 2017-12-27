@@ -152,7 +152,7 @@ int flip[64] =
 
 int position()
 {
-    int eval = 0;
+    int eval = 41 * (1 - 2 * sideToMove);
     for (int i = 0; i < 64; i++)
     {
         if (color[i] != EMPTY)

@@ -18,7 +18,7 @@ int rank8 (int square);
 int file8 (int square);
 bool inside (int square);
 bool endgame();
-void takeback (int from, int to, int from_piece, int to_color, int to_piece, int castling, int ep);
+void takeback ();
 void square(int coo);
 
 /* search.cpp */

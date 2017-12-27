@@ -16,7 +16,7 @@ int main()
     beginning:
     int computer, m = 0;
     char input;
-    max_depth = 5;
+    max_depth = 4;
 
     while (m == 0)
     {
@@ -40,10 +40,16 @@ int main()
 
     while (true)
     {
+        for (int i = 0; i < 20; i++) printf("%d ", pv[i]);
+        printf("\n");
+
         if (m == 0) break;
 
         m = humanmove(1 - computer);
         print();
+
+        //for (int i = 0; i < 20; i++) printf("%d ", pv[i]);
+        //printf("\n");
 
         if (m == 0) break;
         else if (m == 2) goto beginning;
@@ -86,14 +92,19 @@ int parse(char input[64], int player)
 
 int compmove(int player, int d)
 {
-    int square;
-    if (sideToMove == WHITE) square = think(d);
-    else square = think(d);
+    for (int i = 0; i < 100; i++) dcount[i] = 0;
+    int square = think(d);
     printf("square %d\n", square);
 
     if (square == -1 || square == 1 || square == 0)
     {
         finish(square);
+        return 0;
+    }
+
+    if (ply - fifty >= 100)
+    {
+        finish(0);
         return 0;
     }
 
@@ -112,6 +123,16 @@ int compmove(int player, int d)
     printf("play %d, valid %d, legal %d, capt %d\n", playcount, validcount, legalcount, captcount);
     playcount = 0, validcount = 0, legalcount = 0, captcount = 0;
 
+    for (int i = 0; i < 10; i++) printf("%d. %d\n", i, dcount[i]);
+    for (int i = 0; i < 20; i++)
+    {
+        printf("%d ", last[i]);
+        //printf("%d. %d %d %d %d %d %d %d\n", i, from_last[i], to_last[i], color_to[i], piece_to[i], piece_from[i], castling_before[i], ep_before[i]);
+    }
+    printf("\nPVcount: %d\n", pvcount);
+    printf("hits: %d\n 1. %d 2. %d 3. %d\n", hits, t1, t2, t3);
+    pvcount = 0;
+    hits = 0;
     return 1;
 }
 
@@ -122,10 +143,17 @@ int humanmove (int player)
     char input[64];
     if (possible[0][1] == -1)
     {
-        if (checked(BLACK)) finish(1);
+        if (checked(player)) finish(1);
         else finish(0);
         return 0;
     }
+
+    if (ply - fifty >= 100)
+    {
+        finish(0);
+        return 0;
+    }
+
     while (m != 1)
     {
         printf("Your move: ");

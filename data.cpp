@@ -17,7 +17,7 @@ int max_time;
 int max_depth;
 int start_time;
 int end_time;
-int nodes;          // nodes analyzed
+int nodes = 0;          // nodes analyzed
 int hashing;
 int hashing2;
 bool white_short_castle;
@@ -35,35 +35,49 @@ int legalcount = 0;
 int captcount = 0;
 int validcount = 0;
 int hashcount = 0;
-//int hashes[100000000];
 int hasheval[100000000];
 int hasheval2[100000000];
 int hashdepth[100000000];
 int hashtype[100000000];
 int history[4096];
-int fromto[4096];
-int pv[20];
+int pv[500];
+int last[100];
+int dcount[100];
+int from_last[1000];
+int to_last[1000];
+int color_to[1000];
+int piece_to[1000];
+int piece_from[1000];
+int castling_before[1000];
+int ep_before[1000];
+int fifty_before[1000];
+int pvcount = 0;
+int hits = 0;
+int t1 = 0;
+int t2 = 0;
+int t3 = 0;
+int captdepth = 0;
 
 int start_color[64] = {
-	6, 6, 1, 6, 1, 6, 1, 6,//1, 1, 1, 1, 1, 1, 1, 1,6, 1, 6, 6, 1, 6, 1, 6,
-	6, 6, 1, 1, 1, 1, 6, 6,
+	1, 1, 1, 1, 1, 1, 1, 1,//1, 1, 1, 1, 1, 1, 1, 1,6, 1, 6, 6, 1, 6, 1, 6,
+	1, 1, 1, 1, 1, 1, 1, 1,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 0, 0, 0, 0, 6, 6,
-	6, 6, 0, 6, 0, 6, 0, 6//0, 0, 0, 0, 0, 0, 0, 0,6, 0, 6, 6, 0, 6, 0, 6
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0//0, 0, 0, 0, 0, 0, 0, 0,6, 0, 6, 6, 0, 6, 0, 6
 };
 
 int start_piece[64] = {
-	6, 6, 2, 6, 5, 6, 1, 6,//3, 1, 2, 4, 5, 2, 1, 3,6, 1, 6, 6, 5, 6, 1, 6,
-	6, 6, 0, 0, 0, 0, 6, 6,
+	3, 1, 2, 4, 5, 2, 1, 3,//3, 1, 2, 4, 5, 2, 1, 3,6, 1, 6, 6, 5, 6, 1, 6,
+	0, 0, 0, 0, 0, 0, 0, 0,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
 	6, 6, 6, 6, 6, 6, 6, 6,
-	6, 6, 0, 0, 0, 0, 6, 6,
-	6, 6, 2, 6, 5, 6, 1, 6//3, 1, 2, 4, 5, 2, 1, 3,6, 1, 6, 6, 5, 6, 1, 6
+	0, 0, 0, 0, 0, 0, 0, 0,
+	3, 1, 2, 4, 5, 2, 1, 3//3, 1, 2, 4, 5, 2, 1, 3,6, 1, 6, 6, 5, 6, 1, 6
 };
 
 char piece_letter[6] = {

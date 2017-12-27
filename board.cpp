@@ -21,6 +21,20 @@ void initialise()
 		possible[i][1] = -1;
 	}
 
+	for (int i = 0; i < 500; i++) pv[i] = -1;
+	for (int i = 0; i < 100; i++) last[i] = -1;
+	for (int i = 0; i < 1000; i++)
+    {
+        dcount[i] = 0;
+        from_last[i] = -1;
+        to_last[i] = -1;
+        color_to[i] = -1;
+        piece_to[i] = -1;
+        piece_from[i] = -1;
+        castling_before[i] = -1;
+        ep_before[i] = -1;
+    }
+
 	sideToMove = WHITE;
 	opponent = BLACK;
 	castle = 15;
@@ -28,10 +42,10 @@ void initialise()
 	fifty = 0;
 	current = 0;
 	ply = 0;
-	white_long_castle = true;
-	white_short_castle = true;
-	black_long_castle = true;
-	black_short_castle = true;
+	if (color[56] == WHITE) white_long_castle = true;
+	if (color[63] == WHITE) white_short_castle = true;
+	if (color[0] == BLACK) black_long_castle = true;
+	if (color[7] == BLACK) black_short_castle = true;
 }
 
 /* init_hash() initializes the random numbers used by set_hash(). */
@@ -69,11 +83,7 @@ void init_hash()
         hashtype[i] = -1;
     }
 
-    for (i = 0; i < 4096; i++)
-    {
-        history[i] = 0;
-        fromto[i] = 100 * (i / 64) + (i % 64);
-    }
+    for (i = 0; i < 4096; i++) history[i] = 0;
 }
 
 void sorthistory ()
@@ -88,9 +98,6 @@ void sorthistory ()
                 x = history[i];
                 history[i] = history[j];
                 history[j] = x;
-                x = fromto[i];
-                fromto[i] = fromto[j];
-                fromto[j] = x;
             }
         }
     }
@@ -175,10 +182,19 @@ bool checked (int player)
 
 bool play(int from, int to)
 {
+    if (from < 0 || to < 0 || from > 63 || to > 63) return false;
     playcount++;
     if ((color[from] != sideToMove) || (color[to] == sideToMove) || !valid(from, to)) return false;
 
-    int color_to = color[to], piece_to = piece[to], piece_from = piece[from], ep_before = ep;
+    from_last[ply] = from;
+    to_last[ply] = to;
+    color_to[ply] = color[to];
+    piece_to[ply] = piece[to];
+    piece_from[ply] = piece[from];
+    ep_before[ply] = ep;
+    castling_before[ply] = 1000 * white_long_castle + 100 * white_short_castle + 10 * black_long_castle + black_short_castle;
+    fifty_before[ply] = fifty;
+    if (color[to] == 1 - sideToMove) fifty = ply;
 
     color[to] = color[from];
     piece[to] = piece[from];
@@ -189,18 +205,16 @@ bool play(int from, int to)
     if(checked(sideToMove))
     {
         sideToMove = 1 - sideToMove;
-        takeback(from, to, piece_from, color_to, piece_to, 0, ep_before);
+        takeback();
 
         return false;
     }
 
     set_hash(sideToMove);
 
-    if (((color[to] == WHITE) && (to / 8 == 0) && (piece[to] == PAWN)) ||
-        ((color[to] == BLACK) && (to / 8 == 7) && (piece[to] == PAWN))) piece[to] = QUEEN;
-
     if (piece[to] == PAWN)
     {
+        fifty = ply;
         if (to / 8 == sideToMove * 7) piece[to] = QUEEN;
 
         else if (sideToMove == WHITE)
@@ -283,22 +297,42 @@ bool play(int from, int to)
     if (from == 0 || to == 0) black_long_castle = false;
     if (from == 7 || to == 7) black_short_castle = false;
 
-    if (ep_before == ep) ep = -1;
-    /*if (ep != -1)
-    {
-        jbl++;
-        if (jbl % 100 == 0)
-        {
-            printf("The ep is %d %d-%d\n", ep, from, to);
-            square(ep);
-            square(from);
-            square(to);
-            print();
-        }
-    }*/
+    if (ep_before[ply-1] == ep) ep = -1;
     sideToMove = 1 - sideToMove;
     return true;
 }
+
+/*bool free (int from, int to)
+{
+    if (color[from] == color[to]) return false;
+    if (rank8(from) == rank8(to))
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if ((file8(from) - i) * (file8(to) - i) < 0 && color[rank8(from) * 8 + i] != EMPTY) return false;
+        }
+
+        return true;
+    }
+
+    if (file8(from) == file8(to))
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if ((rank8(from) - i) * (rank8(to) - i) < 0 && color[file8(from) + 8 * i] != EMPTY) return false;
+        }
+
+        return true;
+    }
+
+    if (rank8(from) + file8(from) == rank8(to) + file8(to))
+    {
+        for (int i = 0; i < 8; i++)
+        {
+
+        }
+    }
+}*/
 
 bool valid (int from, int to)
 {
@@ -310,29 +344,29 @@ bool valid (int from, int to)
         if (color[from] == WHITE)
         {
             if (j == 8 && color[to] == EMPTY) return true;
-            else if (from / 8 == 6 && j == 16 && color[to + 8] == EMPTY && color[to] == EMPTY) return true;
-            else if (color[to] == BLACK && from / 8 == to / 8 + 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
-            else if (from / 8 == 3 && to / 8 == 2 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to)return true;
+            else if (rank8(from) == 6 && j == 16 && color[to + 8] == EMPTY && color[to] == EMPTY) return true;
+            else if (color[to] == BLACK && rank8(from) == rank8(to) + 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
+            else if (rank8(from) == 3 && rank8(to) == 2 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to)return true;
         }
 
         else if (color[from] == BLACK)
         {
             if (j == -8 && color[to] == EMPTY) return true;
-            else if (from / 8 == 1 && j == -16 && color[to - 8] == EMPTY && color[to] == EMPTY) return true;
-            else if (color[to] == WHITE && from / 8 == to / 8 - 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
-            else if (from / 8 == 4 && to / 8 == 5 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to) return true;
+            else if (rank8(from) == 1 && j == -16 && color[to - 8] == EMPTY && color[to] == EMPTY) return true;
+            else if (color[to] == WHITE && rank8(from) == rank8(to) - 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
+            else if (rank8(from) == 4 && rank8(to) == 5 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to) return true;
         }
     }
 
     else if (piece[from] == KNIGHT)
     {
-        if (((abs(from / 8 - to / 8) == 1) && (abs(from % 8 - to % 8) == 2)) ||
-            ((abs(from / 8 - to / 8) == 2) && (abs(from % 8 - to % 8) == 1))) return true;
+        if (((abs(rank8(from) - rank8(to)) == 1) && (abs(from % 8 - to % 8) == 2)) ||
+            ((abs(rank8(from) - rank8(to)) == 2) && (abs(from % 8 - to % 8) == 1))) return true;
     }
 
     else if (piece[from] == BISHOP)
     {
-        if ((from / 8 + from % 8) == (to / 8 + to % 8))
+        if ((rank8(from) + from % 8) == (rank8(to) + to % 8))
         {
             for (int i = from + 7; i < to; i += 7)
             {
@@ -347,7 +381,7 @@ bool valid (int from, int to)
             return true;
         }
 
-        if ((from / 8 - from % 8) == (to / 8 - to % 8))
+        if ((rank8(from) - from % 8) == (rank8(to) - to % 8))
         {
             for (int i = from + 9; i < to; i += 9)
             {
@@ -566,29 +600,21 @@ bool valid (int from, int to)
 void legalmoves(int side)
 {
     legalcount++;
-    srand(time(NULL));
-    int current = 0, c, p, p1, p2, x, piece_from, ep_before, j;
+    int current = 0, p1, p2, x, j, index;
     for (int i = 0; i < 64; i++)
     {
         if (color[i] == side)
         {
             genpossible(i);
-            //printf("%d %d\n", i, totaloffs);
             for (int k = 0; k < totaloffs; k++)
             {
                 j = i + offset[k];
-                //printf("%d\n", j);
                 if (color[j] != side)
                 {
-                    c = color[j];
-                    p = piece[j];
-                    piece_from = piece[i];
-                    ep_before = ep;
-
                     bool legal = play(i, j);
                     if (legal)
                     {
-                        takeback(i, j, piece_from, c, p, 0, ep_before);
+                        takeback();
 
                         possible[current][0] = i;
                         possible[current][1] = j;
@@ -605,22 +631,39 @@ void legalmoves(int side)
         possible[i][1] = -1;
     }
 
-    /*for (int i = 0; i < current; i++)
+    if (current > 0 && pv[ply] != -1)
     {
-        for (int j = i+1; j < current; j++)
+        p1 = pv[ply] / 100;
+        p2 = pv[ply] % 100;
+        //printf("\n%d", ply); square(p1); square(p2);
+        //print();
+        index = -1;
+        for (int i = 0; i < current; i++)
         {
-            x = rand() % 2;
-            if (x == 0)
-            {
-                x = possible[i][0];
-                possible[i][0] = possible[j][0];
-                possible[j][0] = x;
-                x = possible[i][1];
-                possible[i][1] = possible[j][1];
-                possible[j][1] = x;
-            }
+            if (possible[i][0] == p1 && possible[i][1] == p2) {index = i; break;}
         }
-    }*/
+        if (index != -1 && play(p1, p2))
+        {
+            pvcount++;
+            possible[index][0] = possible[current-1][0];
+            possible[index][1] = possible[current-1][1];
+            possible[current-1][0] = p1;
+            possible[current-1][1] = p2;
+            current--;
+            takeback();
+        }
+        /*else
+        {
+            printf("\n%d %d ", ply, current); square(p1); square(p2);
+            print();
+            for (int i = 0; i < current; i++)
+            {
+                square(possible[i][0]);
+                square(possible[i][1]);
+                printf(" ");
+            }
+        }*/
+    }
 
     for (int i = 0; i < current; i++)
     {
@@ -649,7 +692,9 @@ void legalmoves(int side)
         if (points(p1) > 0) captures++;
     }
 
-    for (int i = captures; i < current; i++)
+    current -= captures;
+
+    for (int i = 0; i < current; i++)
     {
         for (int j = i + 1; j < current; j++)
         {
@@ -658,7 +703,7 @@ void legalmoves(int side)
             p3 = possible[j][0];
             p4 = possible[j][1];
 
-            if (history[100 * p1 + p2] < history[100 * p3 + p4])
+            if (history[64 * p1 + p2] > history[64 * p3 + p4])
             {
                 possible[i][0] = p3;
                 possible[j][0] = p1;
@@ -671,105 +716,54 @@ void legalmoves(int side)
 
 int capturing (int side)
 {
+    if (captdepth > 4) return position();
     captcount++;
-    int list_moves[100][2], current = 0, mult = 2 * side - 1, res = position(), r, from, to, c, p, val, orig_piece, ep_before;     // mult = -1 if WHITE and 1 if BLACK
-    //legalmoves(side);
+    int list_moves[100][2], current = 0, mult = 1 - 2 * side, res = position() * mult, r, from, to, val, j;     // mult = -1 if WHITE and 1 if BLACK
 
-    int piece_from, j;
     for (int i = 0; i < 64; i++)
     {
         if (color[i] == side)
         {
             genpossible(i);
-            //printf("%d %d\n", i, totaloffs);
             for (int k = 0; k < totaloffs; k++)
             {
                 j = i + offset[k];
-                //printf("%d\n", j);
                 if (color[j] == 1 - side)
                 {
-                    c = color[j];
-                    p = piece[j];
-                    piece_from = piece[i];
-                    ep_before = ep;
-
                     bool legal = play(i, j);
                     if (legal)
                     {
-                        takeback(i, j, piece_from, c, p, 0, ep_before);
+                        takeback();
 
                         list_moves[current][0] = i;
                         list_moves[current][1] = j;
                         current++;
-                        //printf("%d\n", current);
                     }
                 }
             }
         }
     }
-    /*while (possible[current][0] != -1)
-    {
-        list_moves[current][0] = possible[current][0];
-        list_moves[current][1] = possible[current][1];
-        current++;
-    }*/
 
-    if (current == 0) return position();
+    if (current == 0) return res;
     current--;
     to = list_moves[current][1];
-    //printf("current can't fight the friction, soooooo... is %d %d %d\n", current, to, color[to]);
-    if (color[to] != (1-side)) return res;
 
     while (current >= 0)
     {
         to = list_moves[current][1];
-        //printf("current is %d %d %d %d %d\n", current, list_moves[current][0], list_moves[current][1], 1-side, color[to]);
         if (color[to] == (1-side))
         {
-            val = points(to);
-            /*if (val * mult >= res * mult)
-            {
-                //printf("%d\n", res);
-                return res;
-            }
-
-            else
-            {*/
-                //printf("Jordiiiiiiiiiii\n");
-                /*int cac[64], cap[64];
-                for (int i = 0; i < 64; i++)
-                {
-                    cac[i] = color[i];
-                    cap[i] = piece[i];
-                }*/
                 from = list_moves[current][0];
-                c = color[to];
-                p = piece[to];
-                orig_piece = piece[from];
-                ep_before = ep;
                 bool legal = play(from, to);
                 if(legal)
                 {
-                    //printf("Lacazeeeeeeeeeeettte\n");
-                    r = capturing(1-side);
-                    takeback(from, to, orig_piece, c, p, 0, ep_before);
+                    captdepth++;
+                    r = -capturing(1-side);
+                    captdepth--;
+                    takeback();
                 }
-                else printf("illegaaaaaaaaaaaaaal\n");
 
-                /*bool same = true;
-                for (int i = 0; i < 64; i++)
-                {
-                    same = same && (cac[i] == color[i]) && (cap[i] == piece[i]);
-                }
-                if (!same) printf("BUGGGGGGGGGGGGGGGGGGGGGGGGGGGG\n");*/
-
-            if (r * mult < res * mult) res = r;
-        }
-
-        else
-        {
-            //printf("%d\n", res);
-            return res;
+            if (r > res) res = r;
         }
 
         current--;
@@ -778,14 +772,21 @@ int capturing (int side)
     return res;
 }
 
-void takeback (int from, int to, int from_piece, int to_color, int to_piece, int castling, int ep_now)
+void takeback ()
 {
-    color[from] = color[to];
-    piece[from] = from_piece;
-    color[to] = to_color;
-    piece[to] = to_piece;
-    ep = ep_now;
     ply--;
+    if (ply < 0 || ply > 500) printf("WHAAAAAAAAAAAAAAAAAAAAAT");
+    int from = from_last[ply], to = to_last[ply];
+    color[from] = color[to];
+    piece[from] = piece_from[ply];
+    color[to] = color_to[ply];
+    piece[to] = piece_to[ply];
+    ep = ep_before[ply];
+    fifty = fifty_before[ply];
+    white_long_castle = castling_before[ply] / 1000;
+    white_short_castle = (castling_before[ply] / 100) % 10;
+    black_long_castle = (castling_before[ply] / 10) % 10;
+    black_short_castle = castling_before[ply] % 10;
     sideToMove = 1 - sideToMove;
 
     if (ep == to && piece[from] == PAWN && from % 8 != to % 8 && color[to] == EMPTY)
@@ -799,6 +800,44 @@ void takeback (int from, int to, int from_piece, int to_color, int to_piece, int
         {
             color[ep - 8] = WHITE;
             piece[ep - 8] = PAWN;
+        }
+    }
+
+    if (piece[from] == KING)
+    {
+        if (color[from] == WHITE && from == 60)
+        {
+            if (to == 62)
+            {
+                color[63] = WHITE;
+                piece[63] = ROOK;
+                color[61] = EMPTY;
+                piece[61] = EMPTY;
+            }
+            else if (to == 58)
+            {
+                color[56] = WHITE;
+                piece[56] = ROOK;
+                color[59] = EMPTY;
+                piece[59] = EMPTY;
+            }
+        }
+        else if (color[from] == BLACK && from == 4)
+        {
+            if (to == 6)
+            {
+                color[7] = BLACK;
+                piece[7] = ROOK;
+                color[5] = EMPTY;
+                piece[5] = EMPTY;
+            }
+            else if (to == 2)
+            {
+                color[0] = BLACK;
+                piece[0] = ROOK;
+                color[3] = EMPTY;
+                piece[3] = EMPTY;
+            }
         }
     }
 }
@@ -819,13 +858,13 @@ void genpossible (int coo)
                 totaloffs++;
             }
             x = coo + 8 * side + 1;
-            if (color[x] == 1 - color[coo])
+            if (color[x] == 1 - color[coo] || x == ep)
             {
                 offset[totaloffs] = x - coo;
                 totaloffs++;
             }
             x = coo + 8 * side - 1;
-            if (color[x] == 1 - color[coo])
+            if (color[x] == 1 - color[coo] || x == ep)
             {
                 offset[totaloffs] = x - coo;
                 totaloffs++;
@@ -897,7 +936,6 @@ void genpossible (int coo)
         case ROOK:
             for (int i = -file8(coo); i < 8 - file8(coo); i++)
             {
-                x = coo + i;
                 if (i != 0)
                 {
                     offset[totaloffs] = i;
@@ -906,10 +944,9 @@ void genpossible (int coo)
             }
             for (int i = -rank8(coo); i < 8 - rank8(coo); i++)
             {
-                x = coo + 8 * i;
                 if (i != 0)
                 {
-                    offset[totaloffs] = i;
+                    offset[totaloffs] = 8 * i;
                     totaloffs++;
                 }
             }
@@ -960,7 +997,6 @@ void genpossible (int coo)
             }
             for (int i = -file8(coo); i < 8 - file8(coo); i++)
             {
-                x = coo + i;
                 if (i != 0)
                 {
                     offset[totaloffs] = i;
@@ -969,10 +1005,9 @@ void genpossible (int coo)
             }
             for (int i = -rank8(coo); i < 8 - rank8(coo); i++)
             {
-                x = coo + 8 * i;
                 if (i != 0)
                 {
-                    offset[totaloffs] = i;
+                    offset[totaloffs] = 8 * i;
                     totaloffs++;
                 }
             }
@@ -991,75 +1026,23 @@ void genpossible (int coo)
                     }
                 }
             }
+            if (color[coo] == WHITE && coo == 60)
+            {
+                offset[totaloffs] = -2;
+                offset[totaloffs + 1] = 2;
+                totaloffs += 2;
+            }
+            if (color[coo] == BLACK && coo == 4)
+            {
+                offset[totaloffs] = -2;
+                offset[totaloffs + 1] = 2;
+                totaloffs += 2;
+            }
             break;
 
         default: totaloffs = 0; break;
     }
 }
-
-class HashEntry
-{
-    private:
-          int key;
-          int value;
-
-    public:
-          HashEntry(int key, int value)
-          {
-                this->key = key;
-                this->value = value;
-          }
-
-          int getKey()
-          {
-              return key;
-          }
-          int getValue()
-          {
-              return value;
-          }
-};
-
-const int TABLE_SIZE = MAX_SIZE;
-
-class HashMap
-{
-    private: HashEntry **table;
-
-    public: HashMap()
-    {
-        table = new HashEntry*[TABLE_SIZE];
-        for (int i = 0; i < TABLE_SIZE; i++) table[i] = NULL;
-    }
-
-     int get(int key)
-      {
-            int h = (key % TABLE_SIZE);
-
-            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
-            if (table[h] == NULL) return -1;
-            else return table[h]->getValue();
-      }
-
-      void put(int key, int value)
-      {
-            int h = (key % TABLE_SIZE);
-            while (table[h] != NULL && table[h]->getKey() != key) h = (h + 1) % TABLE_SIZE;
-
-            if (table[h] != NULL) delete table[h];
-            table[h] = new HashEntry(key, value);
-      }
-
-      ~HashMap()
-      {
-            for (int i = 0; i < TABLE_SIZE; i++)
-            {
-                if (table[i] != NULL) delete table[i];
-            }
-
-            delete[] table;
-      }
-};
 
 int analyzed (int h, int d)
 {
@@ -1105,7 +1088,7 @@ bool inside (int square)
 
 void square(int coo)
 {
-    printf("%c%d\n", ('a' + coo % 8), 8 - coo / 8);
+    printf("%c%d ", ('a' + coo % 8), 8 - coo / 8);
 }
 
 bool endgame()
@@ -1125,6 +1108,6 @@ void swap_values(int x, int y)
 void finish (int result)
 {
     if (result == 1) printf("Black is checkmated!");
-    else if (result == 0) printf("Stalemate!");
+    else if (result == 0) printf("Draw!");
     else if (result == -1) printf("White is checkmated!");
 }
