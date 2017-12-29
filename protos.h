@@ -16,6 +16,7 @@ int points(int piece);
 int analyzed (int h, int d);
 int rank8 (int square);
 int file8 (int square);
+int pawnscount (int side, int file);
 bool inside (int square);
 bool endgame();
 void takeback ();

@@ -4,6 +4,7 @@ int MAX_SIZE = 100000000;
 int color[64];      // white, black or empty
 int piece[64];      // pawn, knight, bishop, rook, queen, king or empty
 int possible[100][2];
+int promotion = QUEEN;   // promoted piece
 int offset[30];     // possible offsets
 int totaloffs = 0;         // count of possible moves
 int sideToMove = WHITE;           // white or black
@@ -57,6 +58,13 @@ int t1 = 0;
 int t2 = 0;
 int t3 = 0;
 int captdepth = 0;
+int checks = 0;
+int distToRoot = 0;
+int evaluation;
+int path[1000];
+int reps[1000];
+int repcount = 0;
+bool threefold = false;
 
 int start_color[64] = {
 	1, 1, 1, 1, 1, 1, 1, 1,//1, 1, 1, 1, 1, 1, 1, 1,6, 1, 6, 6, 1, 6, 1, 6,

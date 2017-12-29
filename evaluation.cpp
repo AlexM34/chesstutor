@@ -7,71 +7,20 @@
 #include <stdlib.h>
 #include <iostream>
 
-#define DOUBLED_PAWN_PENALTY		10
-#define ISOLATED_PAWN_PENALTY		20
-#define BACKWARDS_PAWN_PENALTY		8
-#define PASSED_PAWN_BONUS			20
-#define ROOK_SEMI_OPEN_FILE_BONUS	10
-#define ROOK_OPEN_FILE_BONUS		15
-#define ROOK_ON_SEVENTH_BONUS		20
-
-/*int pawns[64] =
+int pawns[64] =
 {
-	  0,   0,   0,   0,   0,   0,   0,   0,
-	  15, 20,  25,  30,  30,  25,  20,  15,
-	  12, 15,  20,  26,  26,  20,  15,  12,
-	  9,  12,  15,  20,  20,  15,  12,   9,
-	  6,   8,  10,  12,  12,  10,   8,   6,
-	  3,   4,   5,  -5,  -5,   5,   4,   3,
-	  0,   0,   0, -30, -30,   0,   0,   0,
-	  0,   0,   0,   0,   0,   0,   0,   0
+     0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+     5,  5, 10, 25, 25, 10,  5,  5,
+     0,  0,  0, 20, 20,  0,  0,  0,
+     5, -5,-10,  0,  0,-10, -5,  5,
+     5, 10, 10,-20,-20, 10, 10,  5,
+     0,  0,  0,  0,  0,  0,  0,  0
 };
 
 int knights[64] =
 {
-	-10, -10, -10, -10, -10, -10, -10, -10,
-	-10,   0,   0,   0,   0,   0,   0, -10,
-	-10,   0,  15,  15,  15,  15,   0, -10,
-	-10,   0,  15,  25,  25,  15,   0, -10,
-	-10,   0,  15,  25,  25,  15,   0, -10,
-	-10,   0,  15,  15,  15,  15,   0, -10,
-	-10,   0,   0,   0,   0,   0,   0, -10,
-	-10, -35, -10, -10, -10, -10, -35, -10
-};
-
-int bishops[64] = {
-	-40, -10, -10, -10, -10, -10, -10, -40,
-	-10,   0,   0,   0,   0,   0,   0, -10,
-	-10,   0,  15,  15,  15,  15,   0, -10,
-	-10,   0,  15,  25,  25,  15,   0, -10,
-	-10,   0,  15,  25,  25,  15,   0, -10,
-	-10,   0,  15,  15,  15,  15,   0, -10,
-	-10,   0,   0,   0,   0,   0,   0, -10,
-	-40, -10, -30, -10, -10, -30, -10, -40
-};
-
-int kings[64] = {
-	-60, -70, -80, -90, -90, -80, -70, -60,
-	-40, -60, -70, -80, -80, -70, -60, -40,
-	-40, -40, -60, -70, -70, -40, -40, -40,
-	-40, -40, -40, -60, -60, -40, -40, -40,
-	-40, -40, -40, -60, -60, -40, -40, -40,
-	-40, -40, -40, -40, -40, -40, -40, -40,
-	-20, -20, -20, -20, -20, -20, -20, -20,
-	  0,  20,  40, -20,   0, -20,  40,  20
-};*/
-int pawns[64] = {
-	     0,  0,  0,  0,  0,  0,  0,  0,
-        50, 50, 50, 50, 50, 50, 50, 50,
-        10, 10, 20, 30, 30, 20, 10, 10,
-         5,  5, 10, 25, 25, 10,  5,  5,
-         0,  0,  0, 20, 20,  0,  0,  0,
-         5, -5,-10,  0,  0,-10, -5,  5,
-         5, 10, 10,-20,-20, 10, 10,  5,
-         0,  0,  0,  0,  0,  0,  0,  0
-};
-
-int knights[64] = {
 	-50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
     -30,  0, 10, 15, 15, 10,  0,-30,
@@ -152,17 +101,80 @@ int flip[64] =
 
 int position()
 {
-    int eval = 41 * (1 - 2 * sideToMove);
+    int eval = 25 * (1 - 2 * sideToMove), x;
     for (int i = 0; i < 64; i++)
     {
         if (color[i] != EMPTY)
         {
             int side = 1 - 2 * color[i];
+            bool isolated = true, backwards = true, passed = true;
             switch( piece[i] )
             {
                 case PAWN: eval += side * 100;
                            if (color[i] == WHITE) eval += pawns[i];
                            else eval -= pawns[flip[i]];
+                           if (file8(i) > 0 && pawnscount(color[i], file8(i)-1) > 0) isolated = false;
+                           if (file8(i) < 7 && pawnscount(color[i], file8(i)+1) > 0) isolated = false;
+                           if (isolated) eval -= side * 25;
+                           x = pawnscount(color[i], file8(i));
+                           if (x > 1) eval -= side * (x - 1) * 10;
+                           if (color[i] == WHITE)
+                           {
+                               for (int j = rank8(i) + 1; j < 7; j++)
+                               {
+                                   x = 8 * j + file8(i) - 1;
+                                   if (file8(i) > 0 && piece[x] == PAWN && color[x] == WHITE) backwards = false;
+                                   x = 8 * j + file8(i) + 1;
+                                   if (file8(i) < 7 && piece[x] == PAWN && color[x] == WHITE) backwards = false;
+                               }
+                               for (int j = rank8(i) - 1; j > 0; j--)
+                               {
+                                   x = 8 * j + file8(i) - 1;
+                                   if (file8(i) > 0 && piece[x] == PAWN && color[x] == BLACK) passed = false;
+                                   x = 8 * j + file8(i) + 1;
+                                   if (file8(i) < 7 && piece[x] == PAWN && color[x] == BLACK) passed = false;
+                                   x = 8 * j + file8(i);
+                                   if (piece[x] == PAWN && color[x] == BLACK) passed = false;
+                               }
+
+                               if (backwards)
+                               {
+                                   backwards = false;
+                                   if (file8(i) > 0 && inside(i-17) && piece[i-17] == PAWN && color[i-17] == BLACK) backwards = true;
+                                   if (file8(i) < 7 && inside(i-15) && piece[i-15] == PAWN && color[i-15] == BLACK) backwards = true;
+                                   if (backwards) eval -= 10;
+                               }
+                               if (passed) eval += 35;
+                           }
+                           else
+                           {
+                               for (int j = rank8(i) - 1; j > 0; j--)
+                               {
+                                   x = 8 * j + file8(i) - 1;
+                                   if (file8(i) > 0 && piece[x] == PAWN && color[x] == BLACK) backwards = false;
+                                   x = 8 * j + file8(i) + 1;
+                                   if (file8(i) < 7 && piece[x] == PAWN && color[x] == BLACK) backwards = false;
+                               }
+                               for (int j = rank8(i) + 1; j < 7; j++)
+                               {
+                                   x = 8 * j + file8(i) - 1;
+                                   if (file8(i) > 0 && piece[x] == PAWN && color[x] == WHITE) passed = false;
+                                   x = 8 * j + file8(i) + 1;
+                                   if (file8(i) < 7 && piece[x] == PAWN && color[x] == WHITE) passed = false;
+                                   x = 8 * j + file8(i);
+                                   if (piece[x] == PAWN && piece[x] == WHITE) passed = false;
+                               }
+
+                               if (backwards)
+                               {
+                                   backwards = false;
+                                   if (file8(i) > 0 && inside(i+15) && piece[i+15] == PAWN && color[i+15] == WHITE) backwards = true;
+                                   if (file8(i) < 7 && inside(i+17) && piece[i+17] == PAWN && color[i+17] == WHITE) backwards = true;
+                                   if (backwards) eval += 10;
+                               }
+                               if (passed) eval -= 35;
+                           }
+
                            break;
 
                 case KNIGHT: eval += side * 325;
@@ -178,6 +190,11 @@ int position()
                 case ROOK:   eval += side * 525;
                              if (color[i] == WHITE) eval += rooks[i];
                              else eval -= rooks[flip[i]];
+                             if (pawnscount(color[i], file8(i)) == 0)
+                             {
+                                 eval += side * 15;
+                                 if (pawnscount(1 - color[i], file8(i)) == 0) eval += side * 10;
+                             }
                              break;
                 case QUEEN:  eval += side * 950;
                              if (color[i] == WHITE) eval += queens[i];

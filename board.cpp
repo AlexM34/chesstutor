@@ -33,6 +33,8 @@ void initialise()
         piece_from[i] = -1;
         castling_before[i] = -1;
         ep_before[i] = -1;
+        path[i] = -1;
+        reps[i] = 0;
     }
 
 	sideToMove = WHITE;
@@ -54,7 +56,7 @@ void init_hash()
 {
 	int i, j, k;
 
-	srand(0);
+	srand(time(NULL));
 	for (i = 0; i < 2; ++i)
     {
 		for (j = 0; j < 6; ++j)
@@ -210,12 +212,10 @@ bool play(int from, int to)
         return false;
     }
 
-    set_hash(sideToMove);
-
     if (piece[to] == PAWN)
     {
         fifty = ply;
-        if (to / 8 == sideToMove * 7) piece[to] = QUEEN;
+        if (to / 8 == sideToMove * 7) piece[to] = promotion;
 
         else if (sideToMove == WHITE)
         {
@@ -299,6 +299,22 @@ bool play(int from, int to)
 
     if (ep_before[ply-1] == ep) ep = -1;
     sideToMove = 1 - sideToMove;
+
+    set_hash(sideToMove);
+
+    for (int i = 0; i < repcount; i++)
+    {
+        if (hashing == path[i])
+        {
+            reps[i]++;
+            if (reps[i] > 2) threefold = true;
+            if (threefold) print();
+            return true;
+        }
+    }
+    path[repcount] = hashing;
+    reps[repcount] = 1;
+    repcount++;
     return true;
 }
 
@@ -616,9 +632,27 @@ void legalmoves(int side)
                     {
                         takeback();
 
-                        possible[current][0] = i;
-                        possible[current][1] = j;
-                        current++;
+                        if (piece[i] == PAWN && rank8(i) == 1 + 5 * sideToMove)
+                        {
+                            possible[current][0] = i;
+                            possible[current][1] = j;
+                            current++;
+                            possible[current][0] = i;
+                            possible[current][1] = j;
+                            current++;
+                            possible[current][0] = i;
+                            possible[current][1] = j;
+                            current++;
+                            possible[current][0] = i;
+                            possible[current][1] = j;
+                            current++;
+                        }
+                        else
+                        {
+                            possible[current][0] = i;
+                            possible[current][1] = j;
+                            current++;
+                        }
                     }
                 }
             }
@@ -716,15 +750,20 @@ void legalmoves(int side)
 
 int capturing (int side)
 {
-    if (captdepth > 4) return position();
+    if (threefold) return 0;
+    if (fifty - ply >= 100) return 0;
+    if (captdepth > 4) return (1 - 2 * side) * position();
     captcount++;
+    promotion = QUEEN;
     int list_moves[100][2], current = 0, mult = 1 - 2 * side, res = position() * mult, r, from, to, val, j;     // mult = -1 if WHITE and 1 if BLACK
+    bool endofthegame = true;
 
     for (int i = 0; i < 64; i++)
     {
         if (color[i] == side)
         {
             genpossible(i);
+            if (totaloffs > 0) endofthegame = false;
             for (int k = 0; k < totaloffs; k++)
             {
                 j = i + offset[k];
@@ -743,7 +782,13 @@ int capturing (int side)
             }
         }
     }
+    //printf("\n%d %d", captdepth, current);
 
+    if (endofthegame)
+    {
+        if (checked(side)) return 9019 * mult;
+        else return 0;
+    }
     if (current == 0) return res;
     current--;
     to = list_moves[current][1];
@@ -774,6 +819,18 @@ int capturing (int side)
 
 void takeback ()
 {
+    set_hash(sideToMove);
+    for (int i = repcount - 1; i > 0; i--)
+    {
+        if (hashing == path[i])
+        {
+            reps[i]--;
+            if (reps[i] == 0) repcount--;
+            if (threefold) printf("GIROOOOOOOOOOOOOOOOUD\n");
+            threefold = false;
+            break;
+        }
+    }
     ply--;
     if (ply < 0 || ply > 500) printf("WHAAAAAAAAAAAAAAAAAAAAAT");
     int from = from_last[ply], to = to_last[ply];
@@ -1026,13 +1083,13 @@ void genpossible (int coo)
                     }
                 }
             }
-            if (color[coo] == WHITE && coo == 60)
+            if (color[coo] == WHITE && coo == 60 && !checked(WHITE))
             {
                 offset[totaloffs] = -2;
                 offset[totaloffs + 1] = 2;
                 totaloffs += 2;
             }
-            if (color[coo] == BLACK && coo == 4)
+            if (color[coo] == BLACK && coo == 4 && !checked(BLACK))
             {
                 offset[totaloffs] = -2;
                 offset[totaloffs + 1] = 2;
@@ -1079,6 +1136,17 @@ int rank8 (int square)
 int file8 (int square)
 {
     return square % 8;
+}
+
+int pawnscount (int side, int file)
+{
+    int x, number = 0;
+    for (int i = 1; i < 7; i++)
+    {
+        x = 8 * i + file;
+        if (piece[x] == PAWN && color[x] == side) number++;
+    }
+    return number;
 }
 
 bool inside (int square)

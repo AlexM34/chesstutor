@@ -32,6 +32,11 @@ int main()
     init_hash();
     print();
 
+    set_hash(sideToMove);
+    path[0] = hashing;
+    reps[0] = 1;
+    repcount = 1;
+
     if (computer == WHITE)
     {
         m = compmove(computer, max_depth);
@@ -92,13 +97,20 @@ int parse(char input[64], int player)
 
 int compmove(int player, int d)
 {
+    checks = 0;
+    distToRoot = 0;
     for (int i = 0; i < 100; i++) dcount[i] = 0;
     int square = think(d);
     printf("square %d\n", square);
 
-    if (square == -1 || square == 1 || square == 0)
+    for (int i = 0; i < repcount; i++)
     {
-        finish(square);
+        printf("%d. %d %d\n", i, path[i], reps[i]);
+    }
+
+    if (square == -12345 || square == 12345 || square == 0)
+    {
+        finish(square / 12345);
         return 0;
     }
 
@@ -131,6 +143,7 @@ int compmove(int player, int d)
     }
     printf("\nPVcount: %d\n", pvcount);
     printf("hits: %d\n 1. %d 2. %d 3. %d\n", hits, t1, t2, t3);
+    printf("The evaluation is %d\n", evaluation);
     pvcount = 0;
     hits = 0;
     return 1;

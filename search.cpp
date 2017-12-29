@@ -119,7 +119,7 @@ int think (int depth)
         //for (int i = 0; i < 100; i++) dcount[i] = 0;
 
         nodes = 0;
-        best = alphaBeta(-10000, 10000, i);
+        best = alphaBeta(-100000, 100000, i);
         printf("nodes for %d are %d\n", i, nodes);
     }
 
@@ -128,48 +128,66 @@ int think (int depth)
 
 int alphaBeta(int alpha, int beta, int depth)
 {
+    if (threefold) return 0;
+    if (fifty - ply >= 100) return 0;
     dcount[depth]++;
+    distToRoot++;
     if (alpha > beta) return alpha;
-    int list_moves[100][2], from, to, current = 0, score, best = 0, index;
-    bool legal;
+    int list_moves[100][3], from, to, current = 0, score, best = 0, index, iprom = 0, pr, next = depth - 1;
+    bool legal, incheck = false;
     legalmoves(sideToMove);
+
+    if (checked(sideToMove))
+    {
+        next++;
+        checks++;
+        incheck = true;
+    }
 
     while (possible[current][0] != -1)
     {
         list_moves[current][0] = possible[current][0];
         list_moves[current][1] = possible[current][1];
-        if (depth == max_depth)
+        list_moves[current][2] = QUEEN;
+        if (rank8(possible[current][1]) == 7 * sideToMove && piece[possible[current][0]] == PAWN)
+        {
+            switch (iprom % 4)
+            {
+                case 0: list_moves[current][2] = QUEEN; break;
+                case 1: list_moves[current][2] = ROOK; break;
+                case 2: list_moves[current][2] = BISHOP; break;
+                case 3: list_moves[current][2] = KNIGHT; break;
+            }
+            iprom++;
+        }
+        if (depth - checks == max_depth)
         {
             square(list_moves[current][0]);
             square(list_moves[current][1]);
-            printf("%d- ", history[64 * list_moves[current][0] + list_moves[current][1]]);
+            printf("%d %d- ", list_moves[current][2], history[64 * list_moves[current][0] + list_moves[current][1]]);
         }
         current++;
         //printf("\n");
     }
-    if (depth == max_depth)
-    {
-        //for (int i = 0; i <= ply; i++) printf("%d. %d ", i, pv[i]);
-    }
     if (current == 0)
     {
-        if (depth != max_depth) return -9101;
-        else
-        {
-            if (checked(sideToMove)) return 2 * sideToMove - 1;
-            else return 0;
-        }
+        distToRoot--;
+        printf("%d %d %d\n", incheck, checks, depth);
+        if (!incheck) return 0;
+        if (depth == max_depth && (checks == 0 || (checks == 1 && incheck))) return 12345 * (2 * sideToMove - 1);
+        else return -8101-100*depth;
     }
     current--;
     best = 100 * list_moves[current][0] + list_moves[current][1];
 
-    if (depth == 0) return capturing(sideToMove);
+    if (next == -1) {distToRoot--; return capturing(sideToMove);}
 
     while (current >= 0 && alpha < beta)
     {
         from = list_moves[current][0];
         to = list_moves[current][1];
         last[ply] = 100 * from + to;
+        promotion = list_moves[current][2];
         legal = play(from, to);
         nodes++;
 
@@ -181,7 +199,7 @@ int alphaBeta(int alpha, int beta, int depth)
 
             if (score == -1 || hasheval2[hashing2] != score || hashdepth[index] < depth)
             {
-                score = -alphaBeta(-beta, -alpha, depth-1);
+                score = -alphaBeta(-beta, -alpha, next);
                 hasheval[index] = score;
                 hasheval2[hashing2] = score;
                 hashdepth[index] = depth;
@@ -200,12 +218,12 @@ int alphaBeta(int alpha, int beta, int depth)
                 hits++;
                 switch (hashtype[index])
                 {
-                    case 1: if (alpha < hasheval[index]) {alpha = hasheval[index];} score = -alphaBeta(-beta, -alpha, depth-1); break;
+                    case 1: if (alpha < hasheval[index]) {alpha = hasheval[index];} score = -alphaBeta(-beta, -alpha, next); break;
                     case 2: score = hasheval[index]; break;
-                    case 3: if (beta > hasheval[index]) {beta = hasheval[index];} score = -alphaBeta(-beta, -alpha, depth-1); break;
+                    case 3: if (beta > hasheval[index]) {beta = hasheval[index];} score = -alphaBeta(-beta, -alpha, next); break;
                 }
             }
-            if (depth == max_depth)
+            if (distToRoot == 1 && depth == max_depth)
             {
                 square(from);
                 square(to);
@@ -217,12 +235,13 @@ int alphaBeta(int alpha, int beta, int depth)
             if (score > beta)
             {
                 if (color[to] == EMPTY) history[64 * from + to] += depth * depth;
-                if (depth != max_depth) return beta;
+                if (depth != max_depth || (checks == 1 && !incheck) || checks > 1) {distToRoot--; return beta;}
             }
             else if (score > alpha)
             {
                 alpha = score;
                 best = 100*from + to;
+                pr = list_moves[current][2];
             }
         }
         current--;
@@ -231,8 +250,15 @@ int alphaBeta(int alpha, int beta, int depth)
     //if (ply == 0 || depth > 8 || pv[ply-1] == last[depth+1] || last[depth+1] == -1 || pv[ply] == -1)
     for (int i = 0; i < ply; i++) pv[i] = last[i];
     pv[ply] = best;
-    //printf("%d. %d\n", ply, best);
+    if (incheck) checks--;
+    distToRoot--;
+    //printf("%d. %d\n", ply, checks);
 
-    if (depth != max_depth) return alpha;
-    else return best;
+    if (distToRoot > 0) return alpha;
+    else
+    {
+        promotion = pr;
+        evaluation = alpha;
+        return best;
+    }
 }
