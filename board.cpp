@@ -50,8 +50,6 @@ void initialise()
 	if (color[7] == BLACK) black_short_castle = true;
 }
 
-/* init_hash() initializes the random numbers used by set_hash(). */
-
 void init_hash()
 {
 	int i, j, k;
@@ -64,23 +62,19 @@ void init_hash()
             for (k = 0; k < 64; ++k)
             {
                 hash_piece[i][j][k] = hash_rand();
-				hash_piece2[i][j][k] = hash_rand();
             }
         }
     }
 	hash_side = hash_rand();
-	hash_side2 = hash_rand();
 	for (i = 0; i < 64; ++i)
     {
         hash_ep[i] = hash_rand();
-		hash_ep2[i] = hash_rand();
     }
 
     for (i = 0; i < MAX_SIZE; i++)
     {
-        //hashes[i] = -1;
+        hashes[i] = -1;
         hasheval[i] = -1;
-        hasheval2[i] = -1;
         hashdepth[i] = -1;
         hashtype[i] = -1;
     }
@@ -105,60 +99,25 @@ void sorthistory ()
     }
 }
 
-/* hash_rand() XORs some shifted random numbers together to make sure
-   we have good coverage of all 32 bits. (rand() returns 16-bit numbers
-   on some systems.) */
-
 int hash_rand()
 {
-	long long r = 0;
+	int r = 0;
 
 	for (int i = 0; i < 32; i++)
 		r ^= rand() << i;
-	//printf("%llu\n", r);
-	r = r % 10000000;
-	int x = (int) r;
-	x = abs(r);
-	//printf("%d\n", x);
-	return x;
+	return r;
 }
-
-
-/* set_hash() uses the Zobrist method of generating a unique number (hash)
-   for the current chess position. Of course, there are many more chess
-   positions than there are 32 bit numbers, so the numbers generated are
-   not really unique, but they're unique enough for our purposes (to detect
-   repetitions of the position).
-   The way it works is to XOR random numbers that correspond to features of
-   the position, e.g., if there's a BLACK KNIGHT on B8, hash is XORed with
-   hash_piece[BLACK][KNIGHT][B8]. All of the pieces are XORed together,
-   hash_side is XORed if it's BLACK's move, and the en passant square is
-   XORed if there is one. (A chess technicality is that one position can't
-   be a repetition of another if the en passant state is different.) */
 
 void set_hash(int player)
 {
     int i;
 	hashing = 0;
-	hashing2 = 0;
 	for (i = 0; i < 64; ++i)
     {
-		if (color[i] != EMPTY)
-        {
-			hashing ^= hash_piece[color[i]][piece[i]][i];
-			hashing2 ^= hash_piece2[color[i]][piece[i]][i];
-        }
+		if (color[i] != EMPTY) hashing ^= hash_piece[color[i]][piece[i]][i];
     }
-	if (player == BLACK)
-    {
-        hashing ^= hash_side;
-		hashing2 ^= hash_side2;
-    }
-	if (ep != -1)
-    {
-		hashing ^= hash_ep[ep];
-		hashing2 ^= hash_ep2[ep];
-    }
+	if (player == BLACK) hashing ^= hash_side;
+	if (ep != -1) hashing ^= hash_ep[ep];
 }
 
 bool checked (int player)
@@ -184,7 +143,7 @@ bool checked (int player)
 
 bool play(int from, int to)
 {
-    if (from < 0 || to < 0 || from > 63 || to > 63) return false;
+    if (!inside(from) || !inside(to)) return false;
     playcount++;
     if ((color[from] != sideToMove) || (color[to] == sideToMove) || !valid(from, to)) return false;
 
@@ -203,14 +162,6 @@ bool play(int from, int to)
     color[from] = EMPTY;
     piece[from] = EMPTY;
     ply++;
-
-    if(checked(sideToMove))
-    {
-        sideToMove = 1 - sideToMove;
-        takeback();
-
-        return false;
-    }
 
     if (piece[to] == PAWN)
     {
@@ -300,6 +251,13 @@ bool play(int from, int to)
     if (ep_before[ply-1] == ep) ep = -1;
     sideToMove = 1 - sideToMove;
 
+    if(checked(1 - sideToMove))
+    {
+        takeback();
+
+        return false;
+    }
+
     set_hash(sideToMove);
 
     for (int i = 0; i < repcount; i++)
@@ -308,7 +266,6 @@ bool play(int from, int to)
         {
             reps[i]++;
             if (reps[i] > 2) threefold = true;
-            if (threefold) print();
             return true;
         }
     }
@@ -317,38 +274,6 @@ bool play(int from, int to)
     repcount++;
     return true;
 }
-
-/*bool free (int from, int to)
-{
-    if (color[from] == color[to]) return false;
-    if (rank8(from) == rank8(to))
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            if ((file8(from) - i) * (file8(to) - i) < 0 && color[rank8(from) * 8 + i] != EMPTY) return false;
-        }
-
-        return true;
-    }
-
-    if (file8(from) == file8(to))
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            if ((rank8(from) - i) * (rank8(to) - i) < 0 && color[file8(from) + 8 * i] != EMPTY) return false;
-        }
-
-        return true;
-    }
-
-    if (rank8(from) + file8(from) == rank8(to) + file8(to))
-    {
-        for (int i = 0; i < 8; i++)
-        {
-
-        }
-    }
-}*/
 
 bool valid (int from, int to)
 {
@@ -361,28 +286,28 @@ bool valid (int from, int to)
         {
             if (j == 8 && color[to] == EMPTY) return true;
             else if (rank8(from) == 6 && j == 16 && color[to + 8] == EMPTY && color[to] == EMPTY) return true;
-            else if (color[to] == BLACK && rank8(from) == rank8(to) + 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
-            else if (rank8(from) == 3 && rank8(to) == 2 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to)return true;
+            else if (color[to] == BLACK && rank8(from) == rank8(to) + 1 && (file8(from) == file8(to) + 1 || file8(from) == file8(to) - 1)) return true;
+            else if (rank8(from) == 3 && rank8(to) == 2 && (file8(from) == file8(to) + 1 || file8(from) == file8(to) - 1) && ep == to)return true;
         }
 
         else if (color[from] == BLACK)
         {
             if (j == -8 && color[to] == EMPTY) return true;
             else if (rank8(from) == 1 && j == -16 && color[to - 8] == EMPTY && color[to] == EMPTY) return true;
-            else if (color[to] == WHITE && rank8(from) == rank8(to) - 1 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1)) return true;
-            else if (rank8(from) == 4 && rank8(to) == 5 && (from % 8 == to % 8 + 1 || from % 8 == to % 8 - 1) && ep == to) return true;
+            else if (color[to] == WHITE && rank8(from) == rank8(to) - 1 && (file8(from) == file8(to) + 1 || file8(from) == file8(to) - 1)) return true;
+            else if (rank8(from) == 4 && rank8(to) == 5 && (file8(from) == file8(to) + 1 || file8(from) == file8(to) - 1) && ep == to) return true;
         }
     }
 
     else if (piece[from] == KNIGHT)
     {
-        if (((abs(rank8(from) - rank8(to)) == 1) && (abs(from % 8 - to % 8) == 2)) ||
-            ((abs(rank8(from) - rank8(to)) == 2) && (abs(from % 8 - to % 8) == 1))) return true;
+        if (((abs(rank8(from) - rank8(to)) == 1) && (abs(file8(from) - file8(to)) == 2)) ||
+            ((abs(rank8(from) - rank8(to)) == 2) && (abs(file8(from) - file8(to)) == 1))) return true;
     }
 
     else if (piece[from] == BISHOP)
     {
-        if ((rank8(from) + from % 8) == (rank8(to) + to % 8))
+        if ((rank8(from) + file8(from)) == (rank8(to) + file8(to)))
         {
             for (int i = from + 7; i < to; i += 7)
             {
@@ -397,7 +322,7 @@ bool valid (int from, int to)
             return true;
         }
 
-        if ((rank8(from) - from % 8) == (rank8(to) - to % 8))
+        if ((rank8(from) - file8(from)) == (rank8(to) - file8(to)))
         {
             for (int i = from + 9; i < to; i += 9)
             {
@@ -430,7 +355,7 @@ bool valid (int from, int to)
             return true;
         }
 
-        else if (from / 8 == to / 8)
+        else if (rank8(from) == rank8(to))
         {
             for (int i = from + 1; i < to; i++)
             {
@@ -449,7 +374,7 @@ bool valid (int from, int to)
     else if (piece[from] == QUEEN)
     {
         bool check;
-        if ((from / 8 + from % 8) == (to / 8 + to % 8))
+        if ((rank8(from) + file8(from)) == (rank8(to) + file8(to)))
         {
             check = true;
             for (int i = from + 7; i < to; i += 7)
@@ -465,7 +390,7 @@ bool valid (int from, int to)
             if (check) return true;
         }
 
-        if ((from / 8 - from % 8) == (to / 8 - to % 8))
+        if ((rank8(from) - file8(from)) == (rank8(to) - file8(to)))
         {
             check = true;
             for (int i = from + 9; i < to; i += 9)
@@ -497,7 +422,7 @@ bool valid (int from, int to)
             if (check) return true;
         }
 
-        else if (from / 8 == to / 8)
+        else if (rank8(from) == rank8(to))
         {
             check = true;
             for (int i = from + 1; i < to; i++)
@@ -516,8 +441,8 @@ bool valid (int from, int to)
 
     else if (piece[from] == KING)
     {
-        if (((from / 8 == to / 8) || (from / 8 == to / 8 + 1) || (from / 8 == to / 8 - 1)) &&
-            ((from % 8 == to % 8) || (from % 8 == to % 8 + 1) || (from % 8 == to % 8 - 1))) return true;
+        if (((rank8(from) == rank8(to)) || (rank8(from) == rank8(to) + 1) || (rank8(from) == rank8(to) - 1)) &&
+            ((file8(from) == file8(to)) || (file8(from) == file8(to) + 1) || (file8(from) == file8(to) - 1))) return true;
 
         else if (color[from] == WHITE)
         {
@@ -643,16 +568,11 @@ void legalmoves(int side)
                             possible[current][0] = i;
                             possible[current][1] = j;
                             current++;
-                            possible[current][0] = i;
-                            possible[current][1] = j;
-                            current++;
                         }
-                        else
-                        {
-                            possible[current][0] = i;
-                            possible[current][1] = j;
-                            current++;
-                        }
+
+                        possible[current][0] = i;
+                        possible[current][1] = j;
+                        current++;
                     }
                 }
             }
@@ -669,8 +589,6 @@ void legalmoves(int side)
     {
         p1 = pv[ply] / 100;
         p2 = pv[ply] % 100;
-        //printf("\n%d", ply); square(p1); square(p2);
-        //print();
         index = -1;
         for (int i = 0; i < current; i++)
         {
@@ -686,17 +604,6 @@ void legalmoves(int side)
             current--;
             takeback();
         }
-        /*else
-        {
-            printf("\n%d %d ", ply, current); square(p1); square(p2);
-            print();
-            for (int i = 0; i < current; i++)
-            {
-                square(possible[i][0]);
-                square(possible[i][1]);
-                printf(" ");
-            }
-        }*/
     }
 
     for (int i = 0; i < current; i++)
@@ -750,12 +657,11 @@ void legalmoves(int side)
 
 int capturing (int side)
 {
-    if (threefold) return 0;
-    if (fifty - ply >= 100) return 0;
-    if (captdepth > 4) return (1 - 2 * side) * position();
+    if (threefold || fifty - ply >= 100) return 0;
     captcount++;
     promotion = QUEEN;
-    int list_moves[100][2], current = 0, mult = 1 - 2 * side, res = position() * mult, r, from, to, val, j;     // mult = -1 if WHITE and 1 if BLACK
+    int mult = 1 - 2 * side, res = position() * mult, r = res, j;     // mult = -1 if WHITE and 1 if BLACK
+    if (captdepth > 4 || zeitnot) return res;
     bool endofthegame = true;
 
     for (int i = 0; i < 64; i++)
@@ -767,51 +673,27 @@ int capturing (int side)
             for (int k = 0; k < totaloffs; k++)
             {
                 j = i + offset[k];
-                if (color[j] == 1 - side)
+                if (color[j] == 1 - side || (j == ep && piece[i] == PAWN && file8(i) != file8(j)) || (piece[j] == PAWN && rank8(j) == 7 * sideToMove))
                 {
                     bool legal = play(i, j);
                     if (legal)
                     {
+                        captdepth++;
+                        r = -capturing(1-side);
+                        captdepth--;
                         takeback();
-
-                        list_moves[current][0] = i;
-                        list_moves[current][1] = j;
-                        current++;
                     }
+
+                    if (r > res) res = r;
                 }
             }
         }
     }
-    //printf("\n%d %d", captdepth, current);
 
     if (endofthegame)
     {
         if (checked(side)) return 9019 * mult;
         else return 0;
-    }
-    if (current == 0) return res;
-    current--;
-    to = list_moves[current][1];
-
-    while (current >= 0)
-    {
-        to = list_moves[current][1];
-        if (color[to] == (1-side))
-        {
-                from = list_moves[current][0];
-                bool legal = play(from, to);
-                if(legal)
-                {
-                    captdepth++;
-                    r = -capturing(1-side);
-                    captdepth--;
-                    takeback();
-                }
-
-            if (r > res) res = r;
-        }
-
-        current--;
     }
 
     return res;
@@ -826,13 +708,11 @@ void takeback ()
         {
             reps[i]--;
             if (reps[i] == 0) repcount--;
-            if (threefold) printf("GIROOOOOOOOOOOOOOOOUD\n");
             threefold = false;
             break;
         }
     }
     ply--;
-    if (ply < 0 || ply > 500) printf("WHAAAAAAAAAAAAAAAAAAAAAT");
     int from = from_last[ply], to = to_last[ply];
     color[from] = color[to];
     piece[from] = piece_from[ply];
@@ -1101,15 +981,11 @@ void genpossible (int coo)
     }
 }
 
-int analyzed (int h, int d)
+int analyzed (int h)
 {
     for (int i = 0; i < hashcount; i++)
     {
-        //if (h == hashes[i])
-        {
-            if (d <= hashdepth[i]) return i;
-            else return -1;
-        }
+        if (h == hashes[i]) return i;
     }
 
     return -1;
@@ -1175,7 +1051,12 @@ void swap_values(int x, int y)
 
 void finish (int result)
 {
-    if (result == 1) printf("Black is checkmated!");
-    else if (result == 0) printf("Draw!");
-    else if (result == -1) printf("White is checkmated!");
+    switch (result)
+    {
+        case 2: printf("Black lost on time!\n"); break;
+        case 1: printf("Black is checkmated!\n"); break;
+        case 0: printf("Draw!\n"); break;
+        case -1: printf("White is checkmated!\n"); break;
+        case -2: printf("White lost on time!\n"); break;
+    }
 }

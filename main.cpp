@@ -16,7 +16,8 @@ int main()
     beginning:
     int computer, m = 0;
     char input;
-    max_depth = 4;
+    max_depth = 5;
+    max_time = 200000;
 
     while (m == 0)
     {
@@ -30,6 +31,7 @@ int main()
 
     initialise();
     init_hash();
+    open_book();
     print();
 
     set_hash(sideToMove);
@@ -40,6 +42,7 @@ int main()
     if (computer == WHITE)
     {
         m = compmove(computer, max_depth);
+        moves++;
         print();
     }
 
@@ -51,6 +54,7 @@ int main()
         if (m == 0) break;
 
         m = humanmove(1 - computer);
+        moves++;
         print();
 
         //for (int i = 0; i < 20; i++) printf("%d ", pv[i]);
@@ -60,13 +64,15 @@ int main()
         else if (m == 2) goto beginning;
 
         m = compmove(computer, max_depth);
+        moves++;
         print();
     }
 
+    close_book();
     return 0;
 }
 
-int parse(char input[64], int player)
+int parse(char input[64])
 {
     if (input[0] == 'p') return -2;
     if (input[0] == 'x') return -3;
@@ -92,20 +98,64 @@ int parse(char input[64], int player)
         else if (input[4] == 'r') piece[to] = ROOK;
     }
 
+    last[ply-1] = 100 * from + to;
+
 	return 1;
+}
+
+char* notation (int m)
+{
+    char* str = new char[6];
+    char c;
+
+	if (false) {
+		switch (m) {
+			case KNIGHT:
+				c = 'n';
+				break;
+			case BISHOP:
+				c = 'b';
+				break;
+			case ROOK:
+				c = 'r';
+				break;
+			default:
+				c = 'q';
+				break;
+		}
+		sprintf(str, "%c%d%c%d%c",
+				file8(m / 100) + 'a',
+				8 - rank8(m / 100),
+				file8(m % 100) + 'a',
+				8 - rank8(m % 100),
+				c);
+	}
+	else
+    {
+        sprintf(str, "%c%c%c%c",
+				file8(m / 100) + 'a',
+				8 - rank8(m / 100) + '0',
+				file8(m % 100) + 'a',
+				8 - rank8(m % 100) + '0');
+    }
+	return str;
 }
 
 int compmove(int player, int d)
 {
-    checks = 0;
+    zeitnot = false;
     distToRoot = 0;
     for (int i = 0; i < 100; i++) dcount[i] = 0;
+    start_time = clock();
+    stop_time = start_time + max_time / 20;
     int square = think(d);
-    printf("square %d\n", square);
+    int elapsed = clock() - start_time;
+    max_time -= elapsed;
 
-    for (int i = 0; i < repcount; i++)
+    if (max_time < 0)
     {
-        printf("%d. %d %d\n", i, path[i], reps[i]);
+        finish(4 * sideToMove - 2);
+        return 0;
     }
 
     if (square == -12345 || square == 12345 || square == 0)
@@ -122,6 +172,7 @@ int compmove(int player, int d)
 
     int from = square / 100;
     int to = square % 100;
+    last[ply] = square;
 
     bool legal = play(from, to);
     if (!legal) printf("FALSEEEEEE\n");
@@ -131,21 +182,19 @@ int compmove(int player, int d)
     comp_move[2] = (char) (to % 8 + 'a');
     comp_move[3] = (char) ((8 - to / 8) + '0');
 
-    printf("Computer's move: %d. %c%c%c%c %d %d\n", ply, comp_move[0], comp_move[1], comp_move[2], comp_move[3], position(), hashcount);
     printf("play %d, valid %d, legal %d, capt %d\n", playcount, validcount, legalcount, captcount);
     playcount = 0, validcount = 0, legalcount = 0, captcount = 0;
 
     for (int i = 0; i < 10; i++) printf("%d. %d\n", i, dcount[i]);
-    for (int i = 0; i < 20; i++)
-    {
-        printf("%d ", last[i]);
-        //printf("%d. %d %d %d %d %d %d %d\n", i, from_last[i], to_last[i], color_to[i], piece_to[i], piece_from[i], castling_before[i], ep_before[i]);
-    }
     printf("\nPVcount: %d\n", pvcount);
     printf("hits: %d\n 1. %d 2. %d 3. %d\n", hits, t1, t2, t3);
     printf("The evaluation is %d\n", evaluation);
     pvcount = 0;
     hits = 0;
+    hashcount = 0;
+
+    printf("ELAPSED: %d, REMAINING: %d\n", elapsed, max_time);
+    printf("Computer's move: %d. %c%c%c%c %d %d\n", ply, comp_move[0], comp_move[1], comp_move[2], comp_move[3], (1 - 2 * sideToMove) * capturing(sideToMove), hashcount);
     return 1;
 }
 
@@ -156,7 +205,7 @@ int humanmove (int player)
     char input[64];
     if (possible[0][1] == -1)
     {
-        if (checked(player)) finish(1);
+        if (checked(player)) finish(2 * player - 1);
         else finish(0);
         return 0;
     }
@@ -171,9 +220,9 @@ int humanmove (int player)
     {
         printf("Your move: ");
         scanf("%64s", input);
-        m = parse(input, player);
+        m = parse(input);
         if (m == -2) printf("The evaluation is %d\n", position());
-        if (m == -3) printf("The capturing is %d\n", capturing(player));
+        if (m == -3) printf("The capturing is %d\n", capturing(player * (1 - 2 * sideToMove)));
         if (m == -4) return 2;
     }
 

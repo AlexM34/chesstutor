@@ -3,7 +3,7 @@
 int MAX_SIZE = 100000000;
 int color[64];      // white, black or empty
 int piece[64];      // pawn, knight, bishop, rook, queen, king or empty
-int possible[100][2];
+int possible[100][3];
 int promotion = QUEEN;   // promoted piece
 int offset[30];     // possible offsets
 int totaloffs = 0;         // count of possible moves
@@ -17,10 +17,9 @@ int ply = 0;            // depth of calculation
 int max_time;
 int max_depth;
 int start_time;
-int end_time;
+int stop_time;
 int nodes = 0;          // nodes analyzed
 int hashing;
-int hashing2;
 bool white_short_castle;
 bool white_long_castle;
 bool black_short_castle;
@@ -28,16 +27,13 @@ bool black_long_castle;
 int hash_piece[2][6][64];
 int hash_side;
 int hash_ep[64];
-int hash_piece2[2][6][64];
-int hash_side2;
-int hash_ep2[64];
 int playcount = 0;
 int legalcount = 0;
 int captcount = 0;
 int validcount = 0;
 int hashcount = 0;
 int hasheval[100000000];
-int hasheval2[100000000];
+int hashes[100000000];
 int hashdepth[100000000];
 int hashtype[100000000];
 int history[4096];
@@ -58,13 +54,15 @@ int t1 = 0;
 int t2 = 0;
 int t3 = 0;
 int captdepth = 0;
-int checks = 0;
 int distToRoot = 0;
 int evaluation;
 int path[1000];
+int path2[1000];
 int reps[1000];
 int repcount = 0;
 bool threefold = false;
+int moves = 0;
+bool zeitnot = false;
 
 int start_color[64] = {
 	1, 1, 1, 1, 1, 1, 1, 1,//1, 1, 1, 1, 1, 1, 1, 1,6, 1, 6, 6, 1, 6, 1, 6,

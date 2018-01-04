@@ -15,7 +15,7 @@ int pawns[64] =
      5,  5, 10, 25, 25, 10,  5,  5,
      0,  0,  0, 20, 20,  0,  0,  0,
      5, -5,-10,  0,  0,-10, -5,  5,
-     5, 10, 10,-20,-20, 10, 10,  5,
+     5, 10, 10,-30,-30, 10, 10,  5,
      0,  0,  0,  0,  0,  0,  0,  0
 };
 
@@ -115,7 +115,7 @@ int position()
                            else eval -= pawns[flip[i]];
                            if (file8(i) > 0 && pawnscount(color[i], file8(i)-1) > 0) isolated = false;
                            if (file8(i) < 7 && pawnscount(color[i], file8(i)+1) > 0) isolated = false;
-                           if (isolated) eval -= side * 25;
+                           if (isolated) eval -= side * 15;
                            x = pawnscount(color[i], file8(i));
                            if (x > 1) eval -= side * (x - 1) * 10;
                            if (color[i] == WHITE)
@@ -142,9 +142,9 @@ int position()
                                    backwards = false;
                                    if (file8(i) > 0 && inside(i-17) && piece[i-17] == PAWN && color[i-17] == BLACK) backwards = true;
                                    if (file8(i) < 7 && inside(i-15) && piece[i-15] == PAWN && color[i-15] == BLACK) backwards = true;
-                                   if (backwards) eval -= 10;
+                                   if (backwards) eval -= 8;
                                }
-                               if (passed) eval += 35;
+                               if (passed) eval += 15;
                            }
                            else
                            {
@@ -170,9 +170,9 @@ int position()
                                    backwards = false;
                                    if (file8(i) > 0 && inside(i+15) && piece[i+15] == PAWN && color[i+15] == WHITE) backwards = true;
                                    if (file8(i) < 7 && inside(i+17) && piece[i+17] == PAWN && color[i+17] == WHITE) backwards = true;
-                                   if (backwards) eval += 10;
+                                   if (backwards) eval += 8;
                                }
-                               if (passed) eval -= 35;
+                               if (passed) eval -= 15;
                            }
 
                            break;
