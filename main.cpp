@@ -17,7 +17,15 @@ int main()
     int computer, m = 0;
     char input;
     max_depth = 5;
-    max_time = 200000;
+    max_time = 600000;
+    increment = 5000;
+
+    /*for (double i = 0; i < 200; i += 2)
+    {
+        thinkingTime();
+        max_time -= (stop_time - start_time) - increment;
+        ply += 2;
+    }*/
 
     while (m == 0)
     {
@@ -143,14 +151,23 @@ char* notation (int m)
 
 int compmove(int player, int d)
 {
+    for (int i = 0; i < repcount; i++)
+    {
+        //printf("%d. %d with count %d\n", i, hashes[i], reps[i]);
+        if (reps[i] >= 3)
+        {
+            finish(0);
+            return 0;
+        }
+    }
+
     zeitnot = false;
     distToRoot = 0;
     for (int i = 0; i < 100; i++) dcount[i] = 0;
-    start_time = clock();
-    stop_time = start_time + max_time / 20;
+    thinkingTime();
     int square = think(d);
     int elapsed = clock() - start_time;
-    max_time -= elapsed;
+    max_time -= elapsed - increment;
 
     if (max_time < 0)
     {
@@ -188,7 +205,7 @@ int compmove(int player, int d)
     for (int i = 0; i < 10; i++) printf("%d. %d\n", i, dcount[i]);
     printf("\nPVcount: %d\n", pvcount);
     printf("hits: %d\n 1. %d 2. %d 3. %d\n", hits, t1, t2, t3);
-    printf("The evaluation is %d\n", evaluation);
+    printf("The evaluation is %d and square is %d\n", evaluation, square);
     pvcount = 0;
     hits = 0;
     hashcount = 0;

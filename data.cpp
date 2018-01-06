@@ -15,6 +15,7 @@ int fifty;          // 50-moves rule
 int current;        // current move
 int ply = 0;            // depth of calculation
 int max_time;
+int increment;
 int max_depth;
 int start_time;
 int stop_time;
@@ -57,7 +58,6 @@ int captdepth = 0;
 int distToRoot = 0;
 int evaluation;
 int path[1000];
-int path2[1000];
 int reps[1000];
 int repcount = 0;
 bool threefold = false;

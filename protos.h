@@ -23,8 +23,7 @@ void takeback ();
 void square(int coo);
 
 /* search.cpp */
-int random();
-int greedy (int depth, int color);
+void thinkingTime ();
 int think (int depth);
 int alphaBeta (int alpha, int beta, int depth);
 int alphaBetaMax (int alpha, int beta, int depth);

@@ -702,13 +702,13 @@ int capturing (int side)
 void takeback ()
 {
     set_hash(sideToMove);
-    for (int i = repcount - 1; i > 0; i--)
+    for (int i = repcount - 1; i >= 0; i--)
     {
         if (hashing == path[i])
         {
             reps[i]--;
             if (reps[i] == 0) repcount--;
-            threefold = false;
+            if (reps[i] == 2) threefold = false;
             break;
         }
     }

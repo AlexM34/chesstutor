@@ -6,6 +6,31 @@
 #include "data.h"
 #include "protos.h"
 
+void thinkingTime ()
+{
+    double m = ply / 2, total = max_time, spent, percentage;
+    switch ((int) m / 5)
+    {
+            case 0: percentage = 1 + m / 5; break;
+            case 1: percentage = 2 + (m - 5) / 5; break;
+            case 2: percentage = 3 + (m - 10) / 1.5; break;
+            case 3: percentage = 6 + (m - 15) / 1.2; break;
+            case 4: percentage = 10 + (m - 20) / 0.8; break;
+            case 5: percentage = 16 + (m - 25) / 0.5; break;
+            case 6: percentage = 28 - (m - 30) / 0.8; break;
+            case 7: percentage = 22 - (m - 35) / 1.2; break;
+            case 8: percentage = 18 - (m - 40) / 1.5; break;
+            default: percentage = 15; break;
+    }
+
+    percentage += increment / max_time;
+    spent = total * percentage / 100;
+    if (m > 20 && spent < increment && max_time > spent + increment) spent += increment;
+    start_time = clock();
+    stop_time = start_time + spent;
+    //printf("%d. %fs or %f percent spent from %fs remaining\n", (int) m + 1, spent / 1000, 100 * spent / (600000 + 60 * increment), (max_time - spent + increment) / 1000);
+}
+
 int think (int depth)
 {
     int best = book_move();

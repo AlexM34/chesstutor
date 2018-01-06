@@ -13,6 +13,7 @@ extern int fifty;
 extern int ply;
 extern int current;
 extern int max_time;
+extern int increment;
 extern int max_depth;
 extern int start_time;
 extern int stop_time;
